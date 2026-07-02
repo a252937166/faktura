@@ -1,0 +1,10 @@
+node_modules/
+dist/
+artifacts/
+cache/
+typechain-types/
+data/
+keys/
+.env
+.DS_Store
+*.log

@@ -1,0 +1,1277 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_agent",
+        "type": "address"
+      },
+      {
+        "internalType": "contract IFtsoV2Reader",
+        "name": "_ftso",
+        "type": "address"
+      },
+      {
+        "internalType": "contract IFdcProofVerifier",
+        "name": "_fdcVerifier",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes21",
+        "name": "_feedId",
+        "type": "bytes21"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_graceSeconds",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "DuplicateDocument",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InsufficientLiquidity",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InsufficientShares",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidParams",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidProof",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidState",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotAdmin",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotAgent",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotCollector",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotDueYet",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "PaymentTooLow",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StaleRate",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ZeroAmount",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "actor",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "kind",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "subjectId",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "payloadHash",
+        "type": "string"
+      }
+    ],
+    "name": "AgentAttested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "agent",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "collector",
+        "type": "address"
+      }
+    ],
+    "name": "AgentsRotated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "investor",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "sharesMinted",
+        "type": "uint256"
+      }
+    ],
+    "name": "Deposited",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "enforced",
+        "type": "bool"
+      }
+    ],
+    "name": "FdcEnforcementSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "lossFlrWei",
+        "type": "uint256"
+      }
+    ],
+    "name": "InvoiceDefaulted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "advanceFlrWei",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "rateValue",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "int8",
+        "name": "rateDecimals",
+        "type": "int8"
+      }
+    ],
+    "name": "InvoiceFunded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "supplier",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "invoiceNumber",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "faceUsdCents",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint16",
+        "name": "riskScore",
+        "type": "uint16"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint16",
+        "name": "discountBps",
+        "type": "uint16"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "decisionHash",
+        "type": "string"
+      }
+    ],
+    "name": "InvoiceRegistered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "paidFlrWei",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "int256",
+        "name": "poolYieldFlrWei",
+        "type": "int256"
+      }
+    ],
+    "name": "InvoiceSettled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "investor",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "sharesBurned",
+        "type": "uint256"
+      }
+    ],
+    "name": "Withdrawn",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "string",
+            "name": "invoiceNumber",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "debtorTag",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "docHash",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amountUsdCents",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "dueTs",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct InvoiceFacts",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "name": "abiSignatureHack",
+    "outputs": [],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "admin",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "agent",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "kind",
+        "type": "string"
+      },
+      {
+        "internalType": "uint64",
+        "name": "subjectId",
+        "type": "uint64"
+      },
+      {
+        "internalType": "string",
+        "name": "payloadHash",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "model",
+        "type": "string"
+      }
+    ],
+    "name": "attest",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "attestationCount",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "collector",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "deployedCapital",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "deposit",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "fdcEnforced",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "fdcVerifier",
+    "outputs": [
+      {
+        "internalType": "contract IFdcProofVerifier",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "feedId",
+    "outputs": [
+      {
+        "internalType": "bytes21",
+        "name": "",
+        "type": "bytes21"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "ftso",
+    "outputs": [
+      {
+        "internalType": "contract IFtsoV2Reader",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      }
+    ],
+    "name": "fundInvoice",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      }
+    ],
+    "name": "getAttestation",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint64",
+            "name": "id",
+            "type": "uint64"
+          },
+          {
+            "internalType": "address",
+            "name": "actor",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "kind",
+            "type": "string"
+          },
+          {
+            "internalType": "uint64",
+            "name": "subjectId",
+            "type": "uint64"
+          },
+          {
+            "internalType": "string",
+            "name": "payloadHash",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "model",
+            "type": "string"
+          },
+          {
+            "internalType": "uint64",
+            "name": "ts",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct FakturaHub.AgentAttestation",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      }
+    ],
+    "name": "getInvoice",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint64",
+            "name": "id",
+            "type": "uint64"
+          },
+          {
+            "internalType": "address",
+            "name": "supplier",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "invoiceNumber",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "debtorTag",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "docHash",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "faceUsdCents",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint64",
+            "name": "dueTs",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint16",
+            "name": "riskScore",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "discountBps",
+            "type": "uint16"
+          },
+          {
+            "internalType": "string",
+            "name": "decisionHash",
+            "type": "string"
+          },
+          {
+            "internalType": "enum FakturaHub.State",
+            "name": "state",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "advanceFlrWei",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "fundRateValue",
+            "type": "uint256"
+          },
+          {
+            "internalType": "int8",
+            "name": "fundRateDecimals",
+            "type": "int8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "settledFlrWei",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint64",
+            "name": "registeredTs",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "fundedTs",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "closedTs",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct FakturaHub.Invoice",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "graceSeconds",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "invoiceCount",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "liquid",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "from",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "count",
+        "type": "uint64"
+      }
+    ],
+    "name": "listInvoices",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint64",
+            "name": "id",
+            "type": "uint64"
+          },
+          {
+            "internalType": "address",
+            "name": "supplier",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "invoiceNumber",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "debtorTag",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "docHash",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "faceUsdCents",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint64",
+            "name": "dueTs",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint16",
+            "name": "riskScore",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "discountBps",
+            "type": "uint16"
+          },
+          {
+            "internalType": "string",
+            "name": "decisionHash",
+            "type": "string"
+          },
+          {
+            "internalType": "enum FakturaHub.State",
+            "name": "state",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "advanceFlrWei",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "fundRateValue",
+            "type": "uint256"
+          },
+          {
+            "internalType": "int8",
+            "name": "fundRateDecimals",
+            "type": "int8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "settledFlrWei",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint64",
+            "name": "registeredTs",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "fundedTs",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "closedTs",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct FakturaHub.Invoice[]",
+        "name": "out",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      }
+    ],
+    "name": "markDefault",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "poolValue",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "usdCents",
+        "type": "uint256"
+      }
+    ],
+    "name": "quoteUsdCentsInFlrWei",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32[]",
+            "name": "merkleProof",
+            "type": "bytes32[]"
+          },
+          {
+            "components": [
+              {
+                "internalType": "bytes32",
+                "name": "attestationType",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "sourceId",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "uint64",
+                "name": "votingRound",
+                "type": "uint64"
+              },
+              {
+                "internalType": "uint64",
+                "name": "lowestUsedTimestamp",
+                "type": "uint64"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "string",
+                    "name": "url",
+                    "type": "string"
+                  },
+                  {
+                    "internalType": "string",
+                    "name": "httpMethod",
+                    "type": "string"
+                  },
+                  {
+                    "internalType": "string",
+                    "name": "headers",
+                    "type": "string"
+                  },
+                  {
+                    "internalType": "string",
+                    "name": "queryParams",
+                    "type": "string"
+                  },
+                  {
+                    "internalType": "string",
+                    "name": "body",
+                    "type": "string"
+                  },
+                  {
+                    "internalType": "string",
+                    "name": "postProcessJq",
+                    "type": "string"
+                  },
+                  {
+                    "internalType": "string",
+                    "name": "abiSignature",
+                    "type": "string"
+                  }
+                ],
+                "internalType": "struct IWeb2Json.RequestBody",
+                "name": "requestBody",
+                "type": "tuple"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "bytes",
+                    "name": "abiEncodedData",
+                    "type": "bytes"
+                  }
+                ],
+                "internalType": "struct IWeb2Json.ResponseBody",
+                "name": "responseBody",
+                "type": "tuple"
+              }
+            ],
+            "internalType": "struct IWeb2Json.Response",
+            "name": "data",
+            "type": "tuple"
+          }
+        ],
+        "internalType": "struct IWeb2Json.Proof",
+        "name": "proof",
+        "type": "tuple"
+      },
+      {
+        "internalType": "address",
+        "name": "supplier",
+        "type": "address"
+      },
+      {
+        "internalType": "uint16",
+        "name": "riskScore",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint16",
+        "name": "discountBps",
+        "type": "uint16"
+      },
+      {
+        "internalType": "string",
+        "name": "decisionHash",
+        "type": "string"
+      }
+    ],
+    "name": "registerInvoice",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_agent",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_collector",
+        "type": "address"
+      }
+    ],
+    "name": "setAgents",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bool",
+        "name": "_enforced",
+        "type": "bool"
+      }
+    ],
+    "name": "setFdcEnforced",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      }
+    ],
+    "name": "settleInvoice",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "shares",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "stats",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "liquid",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "deployedCapital",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalShares",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalFundedFlr",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalSettledFlr",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalDefaultedFlr",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint64",
+            "name": "invoiceCount",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "attestationCount",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct FakturaHub.Stats",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalDefaultedFlr",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalFundedFlr",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalSettledFlr",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalShares",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "usdCents",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "rate",
+        "type": "uint256"
+      },
+      {
+        "internalType": "int8",
+        "name": "dec",
+        "type": "int8"
+      }
+    ],
+    "name": "usdCentsToFlrWei",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "usedDocHashes",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "shareAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
