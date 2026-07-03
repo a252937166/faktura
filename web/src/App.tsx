@@ -106,6 +106,64 @@ export default function App() {
         </a>
       </header>
 
+      <section className="hero">
+        <div>
+          <span className="hero-badge">
+            <i /> AUTONOMOUS FINANCE ENGINE · ON FLARE
+          </span>
+          <h1>
+            Real invoices.
+            <br />
+            <span className="grad">Funded by AI.</span>
+          </h1>
+          <p className="hero-sub">
+            Faktura is an autonomous invoice-financing desk: an AI agent underwrites real-world
+            receivables, FTSOv2 prices them on-chain, and the Flare Data Connector proves they are real.
+          </p>
+          <p className="hero-note">LLM proposes → policy disposes → registered, funded &amp; attested on Coston2.</p>
+          <div className="hero-cta">
+            <button
+              className="btn-grad"
+              onClick={() => document.getElementById("sell")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            >
+              SELL AN INVOICE →
+            </button>
+            <a
+              className="btn-ghost"
+              target="_blank"
+              rel="noreferrer"
+              href={pool?.contract ? `${EXPLORER}/address/${pool.contract}` : EXPLORER}
+            >
+              SEE IT ON-CHAIN →
+            </a>
+          </div>
+          <div className="hero-metrics">
+            <div className="hm-grad">
+              <b>{fmt(tvl)} FLR</b>
+              <span>pool TVL</span>
+            </div>
+            <div>
+              <b>$1 = {fmt(flrPerUsd)} FLR</b>
+              <span>live FTSOv2 oracle</span>
+            </div>
+            <div>
+              <b>{s?.attestationCount ?? 0}</b>
+              <span>AI decisions on-chain</span>
+            </div>
+          </div>
+        </div>
+        <div className="orbit-wrap" aria-hidden>
+          <div className="orbit o3"><div className="rot"><i className="p" /></div></div>
+          <div className="orbit o2"><div className="rot"><i className="p" /></div></div>
+          <div className="orbit o1"><div className="rot"><i className="p" /></div></div>
+          <div className="core" />
+          <span className="star" style={{ top: "12%", left: "18%", width: 3, height: 3 }} />
+          <span className="star" style={{ top: "72%", left: "8%", width: 2, height: 2, animationDelay: "1.2s" }} />
+          <span className="star" style={{ top: "24%", left: "86%", width: 2, height: 2, animationDelay: ".6s" }} />
+          <span className="star" style={{ top: "84%", left: "78%", width: 3, height: 3, animationDelay: "2s" }} />
+        </div>
+      </section>
+
       <section className="stats">
         <div className="stat">
           <div className="label">Pool TVL</div>
@@ -231,17 +289,19 @@ export default function App() {
             </div>
           </div>
 
-          <SubmitPanel
-            flrPerUsd={flrPerUsd}
-            onSubmitted={(r) => {
-              notify(
-                r.status === "rejected"
-                  ? `Underwriter REJECTED ${r.intake.invoiceNumber}`
-                  : `Underwriter approved & funded ${r.intake.invoiceNumber}`,
-              );
-              refresh();
-            }}
-          />
+          <div id="sell">
+            <SubmitPanel
+              flrPerUsd={flrPerUsd}
+              onSubmitted={(r) => {
+                notify(
+                  r.status === "rejected"
+                    ? `Underwriter REJECTED ${r.intake.invoiceNumber}`
+                    : `Underwriter approved & funded ${r.intake.invoiceNumber}`,
+                );
+                refresh();
+              }}
+            />
+          </div>
         </div>
 
         <div className="panel">
