@@ -88,7 +88,7 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
   feed.publish({
     actor: "underwriter",
     kind: "llm",
-    message: `Scoring ${input.invoiceNumber} with ${config.llmProvider === "auto" ? "auto-selected model" : config.llmProvider}...`,
+    message: `Scoring ${input.invoiceNumber} with the autonomous AI underwriter...`,
   });
   const { opinion, provider, model } = await llmUnderwrite({
     supplierName: input.supplierName,
@@ -140,7 +140,7 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
       discountBps: discount_bps,
       rationale: opinion.rationale,
       redFlags: opinion.red_flags,
-      model: `${provider}:${model}`,
+      model: "autonomous-ai-underwriter",
       policyNotes,
       decisionHash,
     });
@@ -154,7 +154,7 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
     rationale: opinion.rationale,
     redFlags: opinion.red_flags,
     policyNotes,
-    model: `${provider}:${model}`,
+    model: "autonomous-ai-underwriter",
     decisionHash,
     decidedTs: Date.now(),
   };
@@ -203,7 +203,7 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
     deployHash: funded.hash,
   });
 
-  const att = await chain.attest("UNDERWRITE_APPROVE", record.id, decisionHash, model);
+  const att = await chain.attest("UNDERWRITE_APPROVE", record.id, decisionHash, "autonomous-ai-underwriter");
   record.chain.attestHashes.push(att.hash);
   upsertInvoice(record);
   feed.publish({
