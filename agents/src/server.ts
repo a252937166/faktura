@@ -9,6 +9,9 @@ import { chain } from "./chain.js";
 import { processIntake, type IntakeInput } from "./underwriter.js";
 import { startCollector } from "./collector.js";
 import { x402Gate } from "./x402.js";
+import { getSeed } from "./chain-showcase.js";
+import type { FeedEvent } from "./feed.js";
+import type { InvoiceRecord } from "./store.js";
 
 const app = express();
 app.use(cors());
@@ -203,8 +206,30 @@ app.get(/^\/(?!api).*/, (_req, res) => {
 
 // ---- Boot -------------------------------------------------------------------
 
+/** Preload the public showcase with a real captured Coston2 snapshot. */
+function seedShowcase() {
+  try {
+    const seed = getSeed();
+    if (Array.isArray(seed.records)) {
+      db.invoices.length = 0;
+      db.invoices.push(...(seed.records as InvoiceRecord[]));
+    }
+    if (Array.isArray(seed.feed)) {
+      feed.history = seed.feed as FeedEvent[];
+    }
+    config.x402.payTo = seed.agentAddress;
+    console.log(
+      `showcase seed loaded: ${db.invoices.length} invoices, ${feed.history.length} activity events`,
+    );
+  } catch (e) {
+    console.warn("showcase seed load failed:", (e as Error).message);
+  }
+}
+
 async function main() {
-  if (!config.contract) {
+  if (config.showcase) {
+    seedShowcase();
+  } else if (!config.contract) {
     console.warn("FAKTURA_CONTRACT not set — chain features disabled until deploy.");
   } else {
     config.x402.payTo = chain.address("agent");
@@ -223,13 +248,16 @@ async function main() {
     }
   }
 
-  app.listen(config.port, () => {
+  app.listen(config.port, process.env.HOST ?? "0.0.0.0", () => {
     feed.publish({
       actor: "system",
       kind: "boot",
-      message: `Faktura agent service on :${config.port} — contract ${config.contract || "(unset)"} (FDC ${config.fdcMode})`,
+      message: config.showcase
+        ? `Faktura showcase on :${config.port} — live AI underwriting (DeepSeek), on-chain reads from real Coston2 snapshot`
+        : `Faktura agent service on :${config.port} — contract ${config.contract || "(unset)"} (FDC ${config.fdcMode})`,
     });
-    if (config.contract) startCollector();
+    // The autonomous collector only runs against the real chain, never the showcase snapshot.
+    if (config.contract && !config.showcase) startCollector();
   });
 }
 

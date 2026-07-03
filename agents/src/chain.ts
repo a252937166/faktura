@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { Contract, JsonRpcProvider, Wallet, type InterfaceAbi } from "ethers";
 import { config, type Persona } from "./config.js";
+import { showcaseChain } from "./chain-showcase.js";
 
 const require = createRequire(import.meta.url);
 const ABI = require("./abi/FakturaHub.json") as InterfaceAbi;
@@ -94,7 +95,7 @@ function mapInvoice(r: any): ChainInvoice {
   };
 }
 
-export const chain = {
+const realChain = {
   provider,
   address,
 
@@ -193,6 +194,13 @@ export const chain = {
     return hubRead().fdcEnforced();
   },
 };
+
+/**
+ * In showcase mode the app runs on a public host with no secret keys: reads
+ * come from a real captured Coston2 snapshot and writes are simulated
+ * in-memory. Otherwise every call is a real Coston2 transaction.
+ */
+export const chain = config.showcase ? (showcaseChain as unknown as typeof realChain) : realChain;
 
 async function extractInvoiceId(receipt: any): Promise<number> {
   const iface = hubRead().interface;

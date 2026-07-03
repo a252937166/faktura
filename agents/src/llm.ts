@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import https from "node:https";
 import { config } from "./config.js";
 
 /** Structured output of the underwriting model. */
@@ -57,6 +58,85 @@ async function viaAnthropic(intake: unknown): Promise<LlmResult> {
     .map((b) => (b as { text: string }).text)
     .join("\n");
   return { opinion: extractJson(text), provider: "anthropic", model: config.llmModel };
+}
+
+/**
+ * DeepSeek via its OpenAI-compatible chat/completions endpoint, called with
+ * the Node built-in https client (no SDK, no global fetch) so it runs on the
+ * older Node/glibc of a small VPS. This is the underwriter brain on the
+ * hosted showcase, where the Claude Code CLI is unavailable.
+ */
+function deepseekChat(intake: unknown): Promise<string> {
+  const { apiKey, baseUrl, model } = config.deepseek;
+  const url = new URL("/chat/completions", baseUrl);
+  const body = JSON.stringify({
+    model,
+    messages: [
+      { role: "system", content: SYSTEM },
+      { role: "user", content: JSON.stringify(intake, null, 2) },
+    ],
+    temperature: 0.2,
+    // deepseek-v4-pro can spend tokens on reasoning before the answer; give it room.
+    max_tokens: 4096,
+    stream: false,
+  });
+
+  return new Promise<string>((resolve, reject) => {
+    const req = https.request(
+      url,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Length": Buffer.byteLength(body),
+        },
+        timeout: 120_000,
+      },
+      (res) => {
+        let out = "";
+        res.on("data", (d) => (out += d));
+        res.on("end", () => {
+          if ((res.statusCode ?? 0) >= 400) {
+            reject(new Error(`DeepSeek ${res.statusCode}: ${out.slice(0, 300)}`));
+            return;
+          }
+          try {
+            const j = JSON.parse(out);
+            const content = String(j.choices?.[0]?.message?.content ?? "").trim();
+            if (!content) {
+              reject(new Error(`DeepSeek empty content (finish_reason=${j.choices?.[0]?.finish_reason})`));
+              return;
+            }
+            resolve(content);
+          } catch (e) {
+            reject(new Error(`DeepSeek bad JSON envelope: ${(e as Error).message}`));
+          }
+        });
+      },
+    );
+    req.on("timeout", () => req.destroy(new Error("DeepSeek request timed out")));
+    req.on("error", reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+async function viaDeepSeek(intake: unknown): Promise<LlmResult> {
+  const { apiKey, model } = config.deepseek;
+  if (!apiKey) throw new Error("DEEPSEEK_API_KEY not set");
+  let lastErr: Error | null = null;
+  // Retry: the reasoning model occasionally returns no content or non-JSON.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const text = await deepseekChat(intake);
+      return { opinion: extractJson(text), provider: "deepseek", model };
+    } catch (e) {
+      lastErr = e as Error;
+      console.warn(`deepseek attempt ${attempt}/3 failed: ${lastErr.message}`);
+    }
+  }
+  throw lastErr ?? new Error("deepseek failed");
 }
 
 /** Uses the local `claude` CLI in headless mode — no API key needed. */
@@ -145,9 +225,17 @@ export async function underwrite(intake: {
 
   if (provider === "anthropic") return viaAnthropic(enriched);
   if (provider === "claude-cli") return viaClaudeCli(enriched);
+  if (provider === "deepseek") return viaDeepSeek(enriched);
   if (provider === "mock") return viaMock(intake);
 
   // auto
+  if (config.deepseek.apiKey) {
+    try {
+      return await viaDeepSeek(enriched);
+    } catch (e) {
+      console.warn("deepseek failed, falling back:", (e as Error).message);
+    }
+  }
   if (process.env.ANTHROPIC_API_KEY) {
     try {
       return await viaAnthropic(enriched);

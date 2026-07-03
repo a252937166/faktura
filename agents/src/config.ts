@@ -10,17 +10,32 @@ export const ROOT = path.resolve(here, "..", "..");
 
 dotenv.config({ path: path.join(ROOT, ".env") });
 
+/**
+ * Placeholder key for hosts that must never sign (public showcase): the
+ * ethers Wallet constructor requires a well-formed key even though showcase
+ * mode simulates every write in-memory.
+ */
+const DUMMY_KEY = `0x${"11".repeat(32)}`;
+
 function readKey(name: string): string {
   const p = path.join(ROOT, "keys", `${name}.key`);
   try {
     return fs.readFileSync(p, "utf8").trim();
   } catch {
-    return "";
+    return DUMMY_KEY;
   }
 }
 
 export const config = {
   port: Number(process.env.PORT ?? 4020),
+
+  /**
+   * Showcase mode: public read-only demo without secret keys. On-chain reads
+   * come from a captured Coston2 snapshot (real, verifiable on the explorer);
+   * writes are simulated in-memory. The AI underwriter still runs for real.
+   */
+  showcase: process.env.FAKTURA_SHOWCASE === "1",
+  seedPath: process.env.FAKTURA_SEED ?? path.join(ROOT, "agents/data/seed.json"),
 
   /** Deployed FakturaHub address on Coston2. */
   contract: process.env.FAKTURA_CONTRACT ?? "",
@@ -58,9 +73,16 @@ export const config = {
     graceSeconds: Number(process.env.FAKTURA_GRACE_SECONDS ?? 120),
   },
 
-  /** LLM provider: "anthropic" | "claude-cli" | "mock" | "auto". */
+  /** LLM provider: "anthropic" | "claude-cli" | "deepseek" | "mock" | "auto". */
   llmProvider: process.env.LLM_PROVIDER ?? "auto",
   llmModel: process.env.LLM_MODEL ?? "claude-sonnet-4-5",
+
+  /** DeepSeek (OpenAI-compatible) — the underwriter brain on hosts without Claude Code. */
+  deepseek: {
+    apiKey: process.env.DEEPSEEK_API_KEY ?? "",
+    baseUrl: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com",
+    model: process.env.DEEPSEEK_MODEL ?? "deepseek-v4-pro",
+  },
 
   /** x402 paid oracle pricing (FLR wei). */
   x402: {
