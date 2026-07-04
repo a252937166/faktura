@@ -265,8 +265,10 @@ app.get("/api/meta", async (_req, res) => {
     x402Scheme: "x402-inspired/native-FLR",
     x402PriceWei: config.x402.priceWei,
     x402PayTo: config.x402.payTo,
-    llmProvider: config.llmProvider,
     fdcMode: config.fdcMode,
+    // Honest-mode flag: showcase hosts read a real Coston2 snapshot but
+    // simulate writes; non-showcase hosts sign real Coston2 transactions.
+    showcase: config.showcase,
     erpUrlTemplate: config.erp.urlTemplate,
   });
 });

@@ -4,6 +4,10 @@ Everything claimable is on-chain on **Coston2** and linked from the
 [README evidence table](../README.md#live-deployment--on-chain-evidence).
 This page is the shortest route through it.
 
+**Hosted demo: [flare.axiqo.xyz](https://flare.axiqo.xyz/)** — safe to click:
+it is a public showcase (real Coston2 snapshot reads, simulated writes — the
+mode banner on the page says which). The transactions below are the real proof.
+
 ## 1. The strict FDC proof (60s) — the part most projects fake
 
 Invoice **#1** on the **evidence hub** (permanently `fdcEnforced=true`) was registered with `fdcEnforced = true`: the

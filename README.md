@@ -8,6 +8,10 @@
 **Flare Summer Signal** submission · Bounty 1 (Interoperable Asset Products) ·
 Live on **Coston2** — evidence hub [`0x2415Ed…CeEb`](https://coston2-explorer.flare.network/address/0x2415Ed954A18a5c232c9d40a753C77f401AaCeEb) (verified, **permanently `fdcEnforced=true`**)
 
+**Hosted demo: [flare.axiqo.xyz](https://flare.axiqo.xyz/)** — public showcase
+(real Coston2 snapshot reads, simulated writes; the mode banner on the page and
+`/api/meta.showcase` say so). Real transaction evidence is in the table below.
+
 **Judges: [`docs/judges.md`](docs/judges.md) is the 3-minute evaluation path.**
 
 ---
@@ -227,8 +231,9 @@ curl -s localhost:4020/api/memos/{sha256-hex} | shasum -a 256
 ## Roadmap
 
 FXRP as LP collateral and USD₮0 settlement; treasury conversion of the FXRP
-reserve under governance; supplier identity binding (advances only to attested
-beneficiaries); a Confidential Compute variant (Bounty 2) that underwrites
+reserve under governance; enterprise KYB registry binding for suppliers and
+debtors (wallet-level binding to the FDC-attested `supplierWallet` already
+ships — see above); a Confidential Compute variant (Bounty 2) that underwrites
 without exposing debtor PII; ERP connectors (Xero/QuickBooks export → signed
 system-of-record endpoint).
 

@@ -89,7 +89,7 @@ const j = <T>(r: Response): Promise<T> => {
 export const api = {
   pool: () => fetch("/api/pool").then((r) => j<PoolResponse>(r)),
   invoices: () => fetch("/api/invoices").then((r) => j<InvoiceRecord[]>(r)),
-  meta: () => fetch("/api/meta").then((r) => j<{ contract: string; explorer: string; chain: string; fdcMode: string }>(r)),
+  meta: () => fetch("/api/meta").then((r) => j<{ contract: string; explorer: string; chain: string; fdcMode: string; showcase: boolean }>(r)),
   submit: (body: unknown) =>
     fetch("/api/invoices", {
       method: "POST",

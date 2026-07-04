@@ -35,6 +35,7 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [depositAmt, setDepositAmt] = useState("60");
+  const [meta, setMeta] = useState<Awaited<ReturnType<typeof api.meta>> | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
 
   const refresh = async () => {
@@ -49,6 +50,7 @@ export default function App() {
 
   useEffect(() => {
     refresh();
+    api.meta().then(setMeta).catch(() => {});
     const iv = setInterval(refresh, 12_000);
     const es = new EventSource("/api/activity");
     es.onmessage = (m) => {
@@ -105,6 +107,25 @@ export default function App() {
           ⭐ GitHub
         </a>
       </header>
+
+      {meta && (
+        <div className={`mode-banner ${meta.showcase ? "mode-showcase" : "mode-live"}`}>
+          {meta.showcase ? (
+            <>
+              <b>PUBLIC SHOWCASE</b> — real Coston2 snapshot, simulated writes. Real transaction
+              evidence lives on the{" "}
+              <a target="_blank" rel="noreferrer" href={`${EXPLORER}/address/${meta.contract}`}>
+                Coston2 explorer
+              </a>
+              .
+            </>
+          ) : (
+            <>
+              <b>LIVE SIGNER</b> — state-changing actions send real Coston2 transactions.
+            </>
+          )}
+        </div>
+      )}
 
       <section className="hero">
         <div>
