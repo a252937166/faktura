@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { formatEther } from "ethers";
+import { formatEther, getAddress } from "ethers";
 import { chain } from "./chain.js";
 import { config } from "./config.js";
 import { buildDemoProof, erpUrlFor, requestWeb2JsonProof } from "./fdc.js";
@@ -104,6 +104,7 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
   // against them. Unfetchable or mismatching documents reject before any
   // attestation fee is spent.
   interface SorFacts {
+    invoiceNumber: string;
     amountUsd: number;
     dueTs: number;
     description: string;
@@ -112,6 +113,7 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
     history?: string;
     docHash: string;
     debtorTag: string;
+    supplierWallet: string;
   }
   let sor: SorFacts | null = null;
   if (config.fdcMode === "strict") {
@@ -122,6 +124,7 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
       const doc = (await res.json()) as { invoice: Record<string, any> };
       const inv = doc.invoice;
       sor = {
+        invoiceNumber: String(inv.number ?? ""),
         amountUsd: Number(inv.amountCents) / 100,
         dueTs: Number(inv.dueTs) * 1000,
         description: String(inv.description ?? ""),
@@ -130,11 +133,26 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
         history: inv.history ? JSON.stringify(inv.history) : undefined,
         docHash: String(inv.documentSha256 ?? ""),
         debtorTag: String(inv.debtor?.tag ?? ""),
+        supplierWallet: String(inv.supplier?.paymentAddress ?? ""),
       };
     } catch (e) {
       return hardFail(
         `strict mode: no attestable system-of-record document at ${sourceUrl} (${(e as Error).message.slice(0, 80)})`,
       );
+    }
+    // Every fact the attestation will carry is validated BEFORE the FDC fee
+    // is spent: identifiers present, payout wallet well-formed, and the
+    // intake form consistent with the document.
+    if (sor.invoiceNumber !== input.invoiceNumber)
+      return hardFail(
+        `system-of-record document is for ${sor.invoiceNumber || "(no number)"}, not ${input.invoiceNumber}`,
+      );
+    if (!sor.docHash) return hardFail("system-of-record document has no documentSha256");
+    if (!sor.debtorTag) return hardFail("system-of-record document has no debtor tag");
+    try {
+      sor.supplierWallet = getAddress(sor.supplierWallet);
+    } catch {
+      return hardFail("system-of-record document has no valid supplier payment address");
     }
     if (Math.round(sor.amountUsd * 100) !== Math.round(input.amountUsd * 100))
       return hardFail(
@@ -266,7 +284,9 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
                 ? "documentSha256"
                 : sor && attested.debtorTag !== sor.debtorTag
                   ? "debtorTag"
-                  : null;
+                  : sor && getAddress(attested.supplierWallet) !== sor.supplierWallet
+                    ? "supplierWallet"
+                    : null;
       if (mismatch) {
         return finalizeReject(record, {
           riskScore: 100,
