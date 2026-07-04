@@ -27,10 +27,10 @@ for proof.
 
 | Lifecycle step (all real txs) | Explorer |
 |---|---|
-| **STRICT FDC path** — Web2Json attestation request to FdcHub | [tx](https://coston2-explorer.flare.network/tx/0xa4c10b9f0af3a249c95f486342888a4a9d07d7b6f0da16d09a74306ac86835cb) |
-| **STRICT FDC path** — `registerInvoice` with `fdcEnforced=true` (Merkle proof verified on-chain, round 1385814) | [tx](https://coston2-explorer.flare.network/tx/0xe385612c2b507303a278a528ff9341ef35fb303a0c5434f749a77c38f103650d) |
-| **STRICT FDC path** — funded at live FTSOv2 rate | [tx](https://coston2-explorer.flare.network/tx/0xd29892e877bd7d07961538c20169389b5562976db8449ae45ea2e9ea86b9adc6) |
-| **STRICT FDC path** — debtor settles at re-quoted rate | [tx](https://coston2-explorer.flare.network/tx/0x0218c235ca14eb152dd79c68f6485a5adf1f35935c68f57c6028de6cf2bb4ea2) |
+| **STRICT FDC path** — Web2Json attestation request to FdcHub | [tx](https://coston2-explorer.flare.network/tx/0x56798765dc617acf90493fa94bb0a5cb26c40d191df3ad0b142d96dfd1d5d822) |
+| **STRICT FDC path** — `registerInvoice` with `fdcEnforced=true` (Merkle proof verified on-chain, round 1385845) | [tx](https://coston2-explorer.flare.network/tx/0xe63934cab7809e23f746882a5c14f9b7e86d4c5304dd78352605b59505813491) |
+| **STRICT FDC path** — funded at live FTSOv2 rate | [tx](https://coston2-explorer.flare.network/tx/0x9ba38dc9a788ae7022da7da80b10631e0c07258ddf2895a328cea76ccf7c19ea) |
+| **STRICT FDC path** — debtor settles at re-quoted rate | [tx](https://coston2-explorer.flare.network/tx/0xdbce9d38f7492774afcafb43832492d6aa044c0a7be05ce2f0f7f626dba3f202) |
 | Demo-mode register + fund + attest (invoice A) | [reg](https://coston2-explorer.flare.network/tx/0x0236eef409a1126b572dd0ece178fba878b80ef121149ce512be45107fb27f66) · [fund](https://coston2-explorer.flare.network/tx/0x2bc7d26f8f952885971f54d98d609cf3c472cb00e89e14437c5342b251c01cd7) · [attest](https://coston2-explorer.flare.network/tx/0x97c66d15e8888bddf04503b2e5c20aceaca1eb25622ffd65bfb9e4ff6db4ddb8) |
 | Settle in FLR (FTSOv2 re-quote at settlement) | [tx](https://coston2-explorer.flare.network/tx/0xe62f6ede47b840ab239bfc926a3fc35cbb8149138cc59d7644cfa0b927bea211) |
 | **Settle in FXRP** (XRP/USD feed — interoperable leg) | [tx](https://coston2-explorer.flare.network/tx/0x3d476ad3207636d61079a050c0c8038272ef5c33e839567fa033d0bef31341aa) |

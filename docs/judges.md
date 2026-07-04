@@ -6,20 +6,20 @@ This page is the shortest route through it.
 
 ## 1. The strict FDC proof (60s) — the part most projects fake
 
-Invoice **#1** on the live hub was registered with `fdcEnforced = true`: the
+Invoice **#8** on the live hub was registered with `fdcEnforced = true`: the
 contract itself Merkle-verified a real **FDC Web2Json attestation** of the
-supplier's system-of-record document (voting round **1385814**) and decoded
+supplier's system-of-record document (voting round **1385845**) and decoded
 the invoice facts *from the attested response*, not from the agent.
 
 1. Attestation request to FdcHub:
-   [`0xa4c10b…835cb`](https://coston2-explorer.flare.network/tx/0xa4c10b9f0af3a249c95f486342888a4a9d07d7b6f0da16d09a74306ac86835cb)
-2. Round finalization: [round 1385814 on the systems explorer](https://coston2-systems-explorer.flare.rocks/voting-round/1385814?tab=fdc)
+   [`0x567987…d5822`](https://coston2-explorer.flare.network/tx/0x56798765dc617acf90493fa94bb0a5cb26c40d191df3ad0b142d96dfd1d5d822)
+2. Round finalization: [round 1385845 on the systems explorer](https://coston2-systems-explorer.flare.rocks/voting-round/1385845?tab=fdc)
 3. `registerInvoice` with the Merkle proof, verified on-chain:
-   [`0xe38561…0650d`](https://coston2-explorer.flare.network/tx/0xe385612c2b507303a278a528ff9341ef35fb303a0c5434f749a77c38f103650d)
+   [`0xe63934…13491`](https://coston2-explorer.flare.network/tx/0xe63934cab7809e23f746882a5c14f9b7e86d4c5304dd78352605b59505813491)
 4. Funded at the live FTSOv2 FLR/USD rate:
-   [`0xd29892…b9adc6`](https://coston2-explorer.flare.network/tx/0xd29892e877bd7d07961538c20169389b5562976db8449ae45ea2e9ea86b9adc6)
+   [`0x9ba38d…7c19ea`](https://coston2-explorer.flare.network/tx/0x9ba38dc9a788ae7022da7da80b10631e0c07258ddf2895a328cea76ccf7c19ea)
 5. Debtor settled at the re-quoted rate:
-   [`0x0218c2…bb4ea2`](https://coston2-explorer.flare.network/tx/0x0218c235ca14eb152dd79c68f6485a5adf1f35935c68f57c6028de6cf2bb4ea2)
+   [`0xdbce9d…ba3f202`](https://coston2-explorer.flare.network/tx/0xdbce9d38f7492774afcafb43832492d6aa044c0a7be05ce2f0f7f626dba3f202)
 
 Reproduce it yourself (~4 min): `cd contracts && npm run fdc:register`
 (uses the committed `docs/erp/INV-2026-0042.json` served by GitHub Pages).
@@ -40,8 +40,8 @@ Open the **verified source**:
 ## 3. Verify an AI decision hash (30s)
 
 ```bash
-shasum -a 256 docs/samples/strict-fdc-decision-memo.sha256-3cd1dfa2.json
-# = getInvoice(1).decisionHash on the explorer (sha256:3cd1dfa2…)
+shasum -a 256 docs/samples/strict-fdc-decision-memo.sha256-a4d175b0.json
+# = getInvoice(8).decisionHash on the explorer (sha256:a4d175b0…)
 ```
 
 Every approval *and* rejection is anchored (`attest`), and the agent serves

@@ -1,0 +1,11 @@
+{
+  "kind": "STRICT_FDC_REGISTRATION",
+  "source": "https://a252937166.github.io/faktura/erp/INV-2026-0042.json",
+  "votingRound": 1385845,
+  "invoiceNumber": "INV-2026-0042",
+  "amountUsdCents": 90,
+  "dueTs": 1790726400,
+  "riskScore": 28,
+  "discountBps": 220,
+  "note": "facts decoded on-chain from the FDC Web2Json attested response"
+}
