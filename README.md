@@ -6,7 +6,7 @@
 > autonomous decision hash-anchored on-chain.
 
 **Flare Summer Signal** submission · Bounty 1 (Interoperable Asset Products) ·
-Live on **Coston2**: [`FakturaHub 0xe7Fb9d…cc58`](https://coston2-explorer.flare.network/address/0xe7Fb9db07C3a34A3Ae3a3398Cb70AA9D1e57cc58) (verified source)
+Live on **Coston2** — evidence hub [`0x2415Ed…CeEb`](https://coston2-explorer.flare.network/address/0x2415Ed954A18a5c232c9d40a753C77f401AaCeEb) (verified, **permanently `fdcEnforced=true`**)
 
 **Judges: [`docs/judges.md`](docs/judges.md) is the 3-minute evaluation path.**
 
@@ -17,25 +17,31 @@ Live on **Coston2**: [`FakturaHub 0xe7Fb9d…cc58`](https://coston2-explorer.fla
 Everything below is a real Coston2 transaction — no judge should have to hunt
 for proof.
 
+Two hubs, one verified source (**two-address posture**): the *evidence hub*
+is permanently strict — `fdcEnforced=true` from genesis, never demoted, and
+the tooling hard-refuses to run demo mode against it. The *demo hub* backs
+the interactive UI, where the (admin-only, evented) demo toggle may be used.
+
 | | |
 |---|---|
 | Network | Flare **Coston2** (chainId 114) |
-| FakturaHub (verified) | [`0xe7Fb9db07C3a34A3Ae3a3398Cb70AA9D1e57cc58`](https://coston2-explorer.flare.network/address/0xe7Fb9db07C3a34A3Ae3a3398Cb70AA9D1e57cc58#code) |
-| DemoFXRP settlement token (verified) | [`0xDD5031f596430C0956D22B9aC724B6f119581549`](https://coston2-explorer.flare.network/address/0xDD5031f596430C0956D22B9aC724B6f119581549#code) |
-| FTSOv2 feeds | FLR/USD `0x01464c522f5553…` + XRP/USD `0x015852502f5553…` via `ContractRegistry.getFtsoV2()` |
-| FDC | `FdcVerification.verifyWeb2Json` via `ContractRegistry` |
+| **EVIDENCE hub** (verified, always strict) | [`0x2415Ed954A18a5c232c9d40a753C77f401AaCeEb`](https://coston2-explorer.flare.network/address/0x2415Ed954A18a5c232c9d40a753C77f401AaCeEb#code) |
+| Demo hub (verified, interactive UI) | [`0xFd92139994CfbD99D54ac931AF5bd59C3DBD8f15`](https://coston2-explorer.flare.network/address/0xFd92139994CfbD99D54ac931AF5bd59C3DBD8f15#code) |
+| DemoFXRP settlement token (verified) | [`0x59303814309229fc0c84Edad1e00852beB2E927F`](https://coston2-explorer.flare.network/address/0x59303814309229fc0c84Edad1e00852beB2E927F#code) |
+| FTSOv2 feeds | FLR/USD `0x01464c522f5553…` + XRP/USD `0x015852502f5553…` via `ContractRegistry.getFtsoV2()`, freshness-bounded by `maxFeedAgeSeconds` |
+| FDC | `FdcVerification.verifyWeb2Json` via `ContractRegistry`, source pinned to `erpUrlPrefix`, payout wallet bound to the attested `supplierWallet` |
 
 | Lifecycle step (all real txs) | Explorer |
 |---|---|
-| **STRICT FDC path** — Web2Json attestation request to FdcHub | [tx](https://coston2-explorer.flare.network/tx/0x56798765dc617acf90493fa94bb0a5cb26c40d191df3ad0b142d96dfd1d5d822) |
-| **STRICT FDC path** — `registerInvoice` with `fdcEnforced=true` (Merkle proof verified on-chain, round 1385845) | [tx](https://coston2-explorer.flare.network/tx/0xe63934cab7809e23f746882a5c14f9b7e86d4c5304dd78352605b59505813491) |
-| **STRICT FDC path** — funded at live FTSOv2 rate | [tx](https://coston2-explorer.flare.network/tx/0x9ba38dc9a788ae7022da7da80b10631e0c07258ddf2895a328cea76ccf7c19ea) |
-| **STRICT FDC path** — debtor settles at re-quoted rate | [tx](https://coston2-explorer.flare.network/tx/0xdbce9d38f7492774afcafb43832492d6aa044c0a7be05ce2f0f7f626dba3f202) |
-| Demo-mode register + fund + attest (invoice A) | [reg](https://coston2-explorer.flare.network/tx/0x0236eef409a1126b572dd0ece178fba878b80ef121149ce512be45107fb27f66) · [fund](https://coston2-explorer.flare.network/tx/0x2bc7d26f8f952885971f54d98d609cf3c472cb00e89e14437c5342b251c01cd7) · [attest](https://coston2-explorer.flare.network/tx/0x97c66d15e8888bddf04503b2e5c20aceaca1eb25622ffd65bfb9e4ff6db4ddb8) |
-| Settle in FLR (FTSOv2 re-quote at settlement) | [tx](https://coston2-explorer.flare.network/tx/0xe62f6ede47b840ab239bfc926a3fc35cbb8149138cc59d7644cfa0b927bea211) |
-| **Settle in FXRP** (XRP/USD feed — interoperable leg) | [tx](https://coston2-explorer.flare.network/tx/0x3d476ad3207636d61079a050c0c8038272ef5c33e839567fa033d0bef31341aa) |
-| Autonomous default write-off (collector) | [tx](https://coston2-explorer.flare.network/tx/0xd3b16fd93387285df8934f528022df8b2022cf5d6f8ec8d2be195a95ad55609d) |
-| AI rejection memo anchored on-chain | [tx](https://coston2-explorer.flare.network/tx/0x1a13f521982fe03e4521a680046619c2185e986ac74d61ea21f91d960e0b36ca) |
+| **STRICT FDC path** — Web2Json attestation request to FdcHub | [tx](https://coston2-explorer.flare.network/tx/0xd8ee114deb28fe8af2810b146049baef422bc11df4304c1e9dd14b74897253b8) |
+| **STRICT FDC path** — `registerInvoice` with `fdcEnforced=true` (Merkle proof verified on-chain, round 1385871) | [tx](https://coston2-explorer.flare.network/tx/0xcdf9e018410586baef0c2a162ca5fab0fde3babb0a8434eb081715eec3f3da22) |
+| **STRICT FDC path** — funded at live FTSOv2 rate | [tx](https://coston2-explorer.flare.network/tx/0x26cab9f401835b99f8c580cd8b8d6f2a7a42a751efce271c228590f3ad0f5fd6) |
+| **STRICT FDC path** — debtor settles at re-quoted rate | [tx](https://coston2-explorer.flare.network/tx/0xa08b2d48f3e7a41bce26c59234ad887bf82cc3f93eaff80427d892ee3aba27d6) |
+| Demo hub: register + fund + attest (invoice A) | [reg](https://coston2-explorer.flare.network/tx/0xf4552fc2f569d3ab662accbdf27f917eaa6cb4b99a29e97571d13d2b29617f0d) · [fund](https://coston2-explorer.flare.network/tx/0x3f4d670e43b1bce3f82f5ae6dc869d456e4b457b55b2ebc3df7759387c6681e9) · [attest](https://coston2-explorer.flare.network/tx/0x4a7d10d18b6383882c7e80a34ea8379dbc3c2ba487805ab1b9e29ed48a60a8ef) |
+| Settle in FLR (FTSOv2 re-quote at settlement) | [tx](https://coston2-explorer.flare.network/tx/0x3459cd05d6233e07fdafef9e9893320d88283351ba7c51553ee3f283dc7a75eb) |
+| **Settle in FXRP** (XRP/USD feed — interoperable leg) | [tx](https://coston2-explorer.flare.network/tx/0x61903de99db379f3a09f3ae8439207028de03a7c7eb3031d31e5fdb6d86d9ef7) |
+| Autonomous default write-off (collector) | [tx](https://coston2-explorer.flare.network/tx/0xf282e2abf4dcc3a3858ef7913457a62d7b90e529d5d4f977069aab25401798b2) |
+| AI rejection memo anchored on-chain | [tx](https://coston2-explorer.flare.network/tx/0x5d40e49bc39c42e722f362fd5bb5a6bbcc35debb9a26692779f09e4b2b5b410f) |
 
 The `$1.00 → FLR` and `$1.00 → FXRP` quotes are readable directly on the
 verified contract: `quoteUsdCentsInFlrWei(100)` / `quoteUsdCentsInToken(100)`
@@ -65,9 +71,9 @@ FDC/FTSOv2.
 
 | Flare protocol | Where it is load-bearing |
 |---|---|
-| **FDC — Web2Json** | `registerInvoice` is **gated by an FDC attestation**: the invoice's facts (number, debtor, amount, due date, doc hash) must be provably read from the supplier's system of record, Merkle-verified on-chain via `FdcVerification.verifyWeb2Json`. The contract additionally **pins the source URL prefix** (`erpUrlPrefix`) — even a stolen agent key cannot attest documents from its own endpoint. |
+| **FDC — Web2Json** | `registerInvoice` is **gated by an FDC attestation**: the invoice's facts (number, debtor, amount, due date, doc hash) must be provably read from the supplier's system of record, Merkle-verified on-chain via `FdcVerification.verifyWeb2Json`. The contract additionally **pins the source URL prefix** (`erpUrlPrefix`) and **pays advances only to the attested `supplierWallet`** — a stolen agent key can neither attest its own endpoint nor redirect funding. |
 | **FTSOv2 — FLR/USD** | The pool holds native FLR; invoices are USD. `fundInvoice` converts the USD advance → FLR at the live feed the moment it pays the supplier; `settleInvoice` re-quotes at the **current** feed so FX drift lands in the pool's share price, never in an unpriced position. |
-| **FTSOv2 — XRP/USD** | The **interoperable settlement leg**: `settleInvoiceInToken` lets the debtor pay the USD face value in **FXRP** at the live XRP/USD rate; the pool's FXRP reserve is marked to market inside `poolValue()` through both feeds. |
+| **FTSOv2 — XRP/USD** | The **interoperable settlement leg**: `settleInvoiceInToken` lets the debtor pay the USD face value in **FXRP** at the live XRP/USD rate; the pool's FXRP reserve is marked to market inside `poolValue()` through both feeds. (Hackathon scope: a mark-to-market reserve; production adds reserve rebalancing / LP redemption across FLR/FXRP.) |
 
 Neither protocol is decorative: remove FTSOv2 and the pool cannot price a
 single funding; remove FDC and the registry is an honor system.
@@ -77,7 +83,7 @@ single funding; remove FDC and the registry is an honor system.
 - **Underwriter agent** — deterministic pre-checks → LLM risk/price opinion →
   off-chain policy clamps → **on-chain `riskPolicy` envelope** (max risk score,
   discount band, tenor cap, per-invoice exposure cap — all admin-set and
-  contract-enforced) → FDC-gated registration, FTSOv2-priced funding → the
+  contract-enforced, with every FTSOv2 read bounded by `maxFeedAgeSeconds`) → FDC-gated registration, FTSOv2-priced funding → the
   **sha256 of the full decision memo anchored on-chain**. Approvals *and*
   rejections are attested; the memo bytes behind every hash are persisted and
   served (`GET /api/memos/:hash`), so the audit trail is *recomputable*.
@@ -89,8 +95,9 @@ single funding; remove FDC and the registry is an honor system.
   settlement — not the Coinbase EIP-3009 scheme).
 
 A compromised agent key **cannot** invent receivables (FDC + URL pinning),
-price outside the envelope (`PolicyViolation`), overexpose the pool
-(`ExposureCapExceeded`), or touch LP balances. See [`SECURITY.md`](SECURITY.md).
+redirect advances (attested `supplierWallet`), price outside the envelope
+(`PolicyViolation`), overexpose the pool (`ExposureCapExceeded`), or touch LP
+balances. See [`SECURITY.md`](SECURITY.md).
 
 ## Architecture
 
@@ -148,9 +155,11 @@ Flare parts are the point:
 cp .env.example .env             # then create keys/{agent,investor,debtor}.key
                                  # (0x-prefixed private keys; agent = deployer/admin)
 
-# 1. contracts — 12 Hardhat tests, then deploy hub + DemoFXRP
+# 1. contracts — 14 Hardhat tests, then deploy hub + DemoFXRP
 cd contracts && npm install && npm test
-npm run deploy:coston2           # prints FAKTURA_CONTRACT + FAKTURA_FXRP → put in .env
+npm run deploy:coston2           # run twice: evidence hub + demo hub; put the
+                                 # addresses in .env (FAKTURA_EVIDENCE_CONTRACT /
+                                 # FAKTURA_CONTRACT) + FAKTURA_FXRP
 
 # 2. web + agent service
 cd ../web && npm install && npm run build
@@ -167,12 +176,13 @@ cd ../contracts && npm run fdc:register
 FAKTURA_FDC=strict npm run e2e   # (from agents/) same, via the agent pipeline
 ```
 
-**Demo mode vs strict mode.** Demo mode (`FAKTURA_FDC=demo`, default for the
-interactive UI) flips the on-chain `fdcEnforced` flag off so registrations are
-instant — an **interaction accelerator, not the proof path** (the flip is an
-admin-only, publicly-evented action, and e2e restores enforcement when done).
-The strict path above is the real thing and is what the evidence table at the
-top links to.
+**Demo mode vs strict mode — two-address posture.** Strict runs route to the
+**evidence hub** (`FAKTURA_EVIDENCE_CONTRACT`), which is permanently
+`fdcEnforced=true`; the tooling hard-refuses to run demo mode against it.
+Demo mode (`FAKTURA_FDC=demo`, the interactive UI) targets the **demo hub**
+and flips its `fdcEnforced` flag off for instant registrations — an
+interaction accelerator, not the proof path (admin-only, publicly-evented,
+restored after runs). The evidence table at the top links the strict path.
 
 **Testnet scaling.** Coston2 FLR ≈ $0.007, so the faucet-funded demo pool backs
 deliberately small USD invoices. The contract logic is scale-independent —
@@ -201,7 +211,7 @@ curl -s localhost:4020/api/memos/<sha256-hex> | shasum -a 256
 
 | Path | What it is |
 |---|---|
-| `contracts/` | `FakturaHub.sol` + mocks, 12 Hardhat tests, deploy / strict-FDC scripts |
+| `contracts/` | `FakturaHub.sol` + mocks, 14 Hardhat tests, deploy / strict-FDC scripts |
 | `agents/` | underwriter · collector · x402-inspired oracle · FDC Web2Json client · ERP facade (TypeScript, ethers v6) |
 | `web/` | React operations dashboard (Vite, SSE live feed) |
 | `docs/` | [`judges.md`](docs/judges.md) · [`architecture.md`](docs/architecture.md) · [`why-flare.md`](docs/why-flare.md) · `erp/` system-of-record docs |

@@ -197,11 +197,15 @@ const realChain = {
         ],
         debtorWallet,
       );
+      // The contract re-quotes at execution time; approve with 2% headroom so
+      // XRP/USD drift between approve and settle cannot cause an allowance
+      // shortfall (the contract only pulls its own computed amount).
+      const buffered = (tokenAmount * 102n) / 100n;
       const balance: bigint = await fxrp.balanceOf(debtorWallet.address);
-      if (balance < tokenAmount) {
-        await (await fxrp.mint(debtorWallet.address, tokenAmount - balance)).wait();
+      if (balance < buffered) {
+        await (await fxrp.mint(debtorWallet.address, buffered - balance)).wait();
       }
-      await (await fxrp.approve(config.contract, tokenAmount)).wait();
+      await (await fxrp.approve(config.contract, buffered)).wait();
       const tx = await sendWithHeadroom(hub("debtor"), "settleInvoiceInToken", [id]);
       await tx.wait();
       return { hash: tx.hash, explorer: explorer(tx.hash) };

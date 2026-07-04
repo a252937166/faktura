@@ -12,12 +12,14 @@ fabricate a receivable and drain the pool against it. Every RWA project hits
 this wall and usually answers it with a committee or a trusted API signer.
 
 On Flare, `registerInvoice` **requires an FDC Web2Json Merkle proof**: the
-invoice's number, debtor, amount, due date and document hash must have been
-fetched from the supplier's system of record by Flare's attestation providers
-in a finalized voting round, and `FdcVerification.verifyWeb2Json` checks that
-proof **inside the contract**. FakturaHub additionally pins the source URL
-prefix (`erpUrlPrefix`), so even a compromised agent key can only register
-documents the pinned ERP actually serves.
+invoice's number, debtor, amount, due date, document hash **and payout
+wallet** must have been fetched from the supplier's system of record by
+Flare's attestation providers in a finalized voting round, and
+`FdcVerification.verifyWeb2Json` checks that proof **inside the contract**.
+FakturaHub additionally pins the source URL prefix (`erpUrlPrefix`) and pays
+advances only to the attested `supplierWallet`, so even a compromised agent
+key can neither register documents the pinned ERP doesn't serve nor redirect
+funding to itself.
 
 Without FDC: Faktura's registry is an honor system. With FDC: invoice facts
 are chain-verified data with provenance.

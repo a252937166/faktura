@@ -59,6 +59,12 @@ sequenceDiagram
 - **Source pinning**: with FDC enforcement on, the attested request URL must
   start with `erpUrlPrefix` (the supplier system of record), else
   `UntrustedSource` — a stolen agent key cannot attest its own endpoint.
+- **Beneficiary binding**: the attested facts carry `supplierWallet`; while
+  enforcement is on, advances are paid to that attested wallet — the agent's
+  `supplier` parameter is only a demo-mode fallback.
+- **Feed freshness**: every FTSOv2 read (funding, settlement quotes, reserve
+  valuation) reverts with `StaleRate` beyond `maxFeedAgeSeconds` (admin-set,
+  default 1 h).
 - **Liquidity pool** (native FLR): `deposit()` mints LP shares at the current
   share price; `withdraw()` burns them against liquid capital only. Yield and
   losses accrue to **share price** = `poolValue / totalShares`, so LPs who
