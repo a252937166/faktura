@@ -185,7 +185,11 @@ export default function App() {
         <div className="stat">
           <div className="label">Collected</div>
           <div className="value">{fmt(weiToFlr(s?.totalSettledFlr))} FLR</div>
-          <div className="sub">face value settled by debtors</div>
+          <div className="sub">
+            {Number(s?.settlementTokenReserve ?? 0) > 0
+              ? `incl. ${(Number(s?.settlementTokenReserve) / 1e6).toFixed(4)} FXRP reserve (XRP/USD feed)`
+              : "face value settled by debtors (FLR or FXRP)"}
+          </div>
         </div>
         <div className="stat">
           <div className="label">Defaults</div>
@@ -353,6 +357,18 @@ export default function App() {
               setBusy(false);
             }
           }}
+          onSettleFxrp={async (id) => {
+            setBusy(true);
+            try {
+              await api.settleFxrp(id);
+              notify(`FXRP settlement submitted for invoice #${id} (XRP/USD FTSO rate)`);
+              refresh();
+            } catch (e) {
+              notify(`FXRP settle failed: ${(e as Error).message}`);
+            } finally {
+              setBusy(false);
+            }
+          }}
         />
       )}
       {toast && <div className="toast">{toast}</div>}
@@ -450,12 +466,14 @@ function Drawer({
   busy,
   onClose,
   onSettle,
+  onSettleFxrp,
 }: {
   record: InvoiceRecord;
   pool: PoolResponse | null;
   busy: boolean;
   onClose: () => void;
   onSettle: (id: number) => void;
+  onSettleFxrp: (id: number) => void;
 }) {
   const chainInv = pool?.onchain.find((o) => o.id === record.id);
   const status = chainInv && record.id ? stateName(chainInv.state) : record.status.toUpperCase();
@@ -464,6 +482,7 @@ function Drawer({
   const txs = useMemo(
     () =>
       [
+        ["FDC attestation request", record.chain.fdcRequestTx],
         ["Register (FDC-gated)", record.chain.registerHash],
         ["Fund (FTSO-priced advance)", record.chain.fundHash],
         ["Settle", record.chain.settleHash],
@@ -555,7 +574,11 @@ function Drawer({
             <span className="k">Pool fee</span>
             <span className="mono">{d ? `${(d.discountBps / 100).toFixed(2)}%` : "—"}</span>
             <span className="k">Facts source</span>
-            <span className="mono">{record.chain.fdcAttested ? "FDC Web2Json (attested)" : "FDC Web2Json (demo)"}</span>
+            <span className="mono">
+              {record.chain.fdcAttested
+                ? `FDC Web2Json (attested${record.chain.fdcVotingRound ? `, round ${record.chain.fdcVotingRound}` : ""})`
+                : "FDC Web2Json (demo mode)"}
+            </span>
             <span className="k">Debtor tag</span>
             <span className="mono">{record.intake.debtorTag}</span>
             <span className="k">Document hash</span>
@@ -583,8 +606,17 @@ function Drawer({
             <button className="btn" disabled={busy} onClick={() => onSettle(record.id)}>
               {busy ? "Settling…" : `Simulate debtor payment ($${fmt(record.intake.amountUsd, 0)} in FLR)`}
             </button>
+            <button
+              className="btn"
+              disabled={busy}
+              style={{ marginTop: 8 }}
+              onClick={() => onSettleFxrp(record.id)}
+            >
+              {busy ? "Settling…" : `Settle in FXRP instead (XRP/USD feed)`}
+            </button>
             <div className="note" style={{ marginTop: 6 }}>
-              Debtor pays the USD face value in FLR, converted at the live FTSOv2 rate.
+              Debtor pays the USD face value in FLR (FLR/USD feed) or FXRP (XRP/USD feed) —
+              both converted at the live FTSOv2 rate at settlement time.
             </div>
           </div>
         )}

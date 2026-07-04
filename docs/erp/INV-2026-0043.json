@@ -1,0 +1,35 @@
+{
+  "_readme": "Supplier system-of-record export served over public HTTPS. The FDC Web2Json attestation reads THIS document; FakturaHub decodes the attested facts on-chain. documentSha256 = sha256 of the `document` string (verify: printf %s \"$document\" | shasum -a 256).",
+  "invoice": {
+    "number": "INV-2026-0043",
+    "currency": "USD",
+    "amountCents": 70,
+    "issuedAt": "2026-07-02",
+    "dueAt": "2026-10-15T00:00:00Z",
+    "dueTs": 1792022400,
+    "supplier": {
+      "name": "Helios Solar Kft",
+      "country": "HU",
+      "vatId": "HU23456789"
+    },
+    "debtor": {
+      "name": "Metro Utilities Zrt",
+      "rating": "A-",
+      "tag": "debtor:metro-utilities-zrt"
+    },
+    "description": "Q2 panel maintenance service contract",
+    "document": "INVOICE INV-2026-0043 | Helios Solar Kft -> Metro Utilities Zrt | USD 0.70 | Q2 panel maintenance service contract | issued 2026-07-02 | due 2026-10-15T00:00:00Z",
+    "documentSha256": "sha256:b6517ba26e5e8a29c6965b12a3d27ec6b7733656390d3540404697f99b4755ff",
+    "lineItems": [
+      {
+        "description": "Q2 panel maintenance service contract",
+        "amountCents": 70
+      }
+    ],
+    "history": {
+      "priorInvoices": 3,
+      "paidOnTime": 3,
+      "disputes": 0
+    }
+  }
+}

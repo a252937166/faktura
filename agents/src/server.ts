@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import express from "express";
 import cors from "cors";
@@ -10,6 +11,7 @@ import { processIntake, type IntakeInput } from "./underwriter.js";
 import { startCollector } from "./collector.js";
 import { x402Gate } from "./x402.js";
 import { getSeed } from "./chain-showcase.js";
+import { getErpDocument, listErpDocuments } from "./erp.js";
 import type { FeedEvent } from "./feed.js";
 import type { InvoiceRecord } from "./store.js";
 
@@ -137,7 +139,77 @@ app.post("/api/demo/settle/:id", async (req, res) => {
   }
 });
 
-// ---- x402 machine-payable risk oracle --------------------------------------
+// Interoperable settlement leg: the debtor pays the USD face value in FXRP,
+// priced by the live XRP/USD FTSOv2 feed; the pool holds the token reserve.
+app.post("/api/demo/settle-fxrp/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const inv = await chain.invoice(id);
+    if (!inv) {
+      res.status(404).json({ error: "invoice not found" });
+      return;
+    }
+    const tokenAmount = await chain.quoteUsdCentsInToken(Number(inv.faceUsdCents));
+    feed.publish({
+      actor: "system",
+      kind: "demo",
+      message: `Debtor settling invoice #${id} in FXRP: $${Number(inv.faceUsdCents) / 100} = ${(Number(tokenAmount) / 1e6).toFixed(4)} FXRP at live XRP/USD FTSO rate...`,
+    });
+    const r = await chain.settleInToken(id, tokenAmount);
+    statsCache.ts = 0;
+    feed.publish({
+      actor: "system",
+      kind: "onchain",
+      message: `Invoice #${id} settled in FXRP — token reserve now held by the pool, valued via FTSOv2`,
+      invoiceId: id,
+      deployHash: r.hash,
+    });
+    res.json({ ok: true, txHash: r.hash });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// ---- Supplier system of record (ERP) ----------------------------------------
+// The FDC Web2Json attestation reads invoice documents from a public HTTPS
+// endpoint. This is that endpoint: canonical, deterministic invoice JSON —
+// bundled docs/erp exports plus invoices submitted through the intake API.
+// Point FAKTURA_ERP_URL_TEMPLATE at a publicly hosted instance to make the
+// agent service its own attestable system of record.
+
+app.get("/erp/invoices", (_req, res) => {
+  res.json({ invoices: listErpDocuments() });
+});
+
+app.get("/erp/invoices/:number", (req, res) => {
+  const doc = getErpDocument(String(req.params.number));
+  if (!doc) {
+    res.status(404).json({ error: "no such invoice in the system of record" });
+    return;
+  }
+  res.json(doc);
+});
+
+// ---- Verifiable decision memos ----------------------------------------------
+// Every underwriting decision's memo is persisted byte-exact; its sha256 is
+// the on-chain decisionHash / attestation payloadHash. Fetch by hash, re-hash
+// the body, compare with the contract — the AI's audit trail is checkable.
+
+app.get("/api/memos/:hash", (req, res) => {
+  const h = String(req.params.hash).replace(/^sha256[:-]/, "");
+  if (!/^[0-9a-f]{64}$/i.test(h)) {
+    res.status(400).json({ error: "expected sha256 hex hash" });
+    return;
+  }
+  const file = path.join(config.memosDir, `sha256-${h}.json`);
+  if (!fs.existsSync(file)) {
+    res.status(404).json({ error: "no memo stored for this hash" });
+    return;
+  }
+  res.type("application/json").send(fs.readFileSync(file, "utf8"));
+});
+
+// ---- x402-inspired machine-payable risk oracle -------------------------------
 
 app.get("/api/risk/:id", x402Gate(), async (req, res) => {
   const id = Number(req.params.id);
@@ -187,10 +259,15 @@ app.get("/api/meta", async (_req, res) => {
     chain: "coston2",
     rpc: config.rpcUrl,
     explorer: config.explorerBase,
+    fxrp: config.fxrp,
+    // x402-inspired HTTP 402 flow settled in native FLR (not the Coinbase
+    // EIP-3009 stablecoin scheme) — see agents/src/x402.ts.
+    x402Scheme: "x402-inspired/native-FLR",
     x402PriceWei: config.x402.priceWei,
     x402PayTo: config.x402.payTo,
     llmProvider: config.llmProvider,
     fdcMode: config.fdcMode,
+    erpUrlTemplate: config.erp.urlTemplate,
   });
 });
 

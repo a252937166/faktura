@@ -19,6 +19,8 @@ interface SeedJson {
   explorer: string;
   /** FLR wei that $1.00 (100 cents) buys at the captured FTSOv2 rate. */
   oneUsdFlrWei: string;
+  /** FXRP smallest units that $1.00 buys at the captured XRP/USD rate. */
+  oneUsdFxrpUnits?: string;
   agentAddress: string;
   records?: unknown[];
   feed?: unknown[];
@@ -28,6 +30,7 @@ interface SeedState {
   stats: ChainStats;
   onchain: ChainInvoice[];
   oneUsdFlrWei: bigint;
+  oneUsdFxrpUnits: bigint;
   agentAddress: string;
   records: unknown[];
   feed: unknown[];
@@ -48,6 +51,7 @@ export function getSeed(): SeedState {
       totalDefaultedFlr: BigInt(raw.stats.totalDefaultedFlr as string),
       invoiceCount: Number(raw.stats.invoiceCount),
       attestationCount: Number(raw.stats.attestationCount),
+      settlementTokenReserve: BigInt((raw.stats.settlementTokenReserve as string) ?? "0"),
     },
     onchain: raw.onchain.map((r) => ({
       id: Number(r.id),
@@ -68,6 +72,8 @@ export function getSeed(): SeedState {
       closedTs: Number(r.closedTs),
     })),
     oneUsdFlrWei: BigInt(raw.oneUsdFlrWei),
+    // fallback ≈ $1.14/XRP so old seeds keep working
+    oneUsdFxrpUnits: BigInt(raw.oneUsdFxrpUnits ?? "877963"),
     agentAddress: raw.agentAddress,
     records: raw.records ?? [],
     feed: raw.feed ?? [],
@@ -115,6 +121,25 @@ export const showcaseChain = {
 
   async quoteUsdCentsInFlrWei(cents: number | bigint): Promise<bigint> {
     return (getSeed().oneUsdFlrWei * BigInt(cents)) / 100n;
+  },
+
+  async quoteUsdCentsInToken(cents: number | bigint): Promise<bigint> {
+    return (getSeed().oneUsdFxrpUnits * BigInt(cents)) / 100n;
+  },
+
+  /** Simulated FXRP settlement: reserve grows, invoice closes. */
+  async settleInToken(id: number, tokenAmount: bigint): Promise<TxResult> {
+    const s = getSeed();
+    const inv = s.onchain.find((i) => i.id === id);
+    if (inv && inv.state === 2) {
+      inv.state = 3; // SETTLED
+      inv.settledFlrWei = await showcaseChain.quoteUsdCentsInFlrWei(inv.faceUsdCents);
+      inv.closedTs = Math.floor(Date.now() / 1000);
+      s.stats.deployedCapital -= inv.advanceFlrWei;
+      s.stats.totalSettledFlr += inv.settledFlrWei;
+      s.stats.settlementTokenReserve += tokenAmount;
+    }
+    return tx();
   },
 
   registerWithProof(

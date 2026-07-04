@@ -37,6 +37,18 @@ function enqueue<T>(persona: Persona, task: () => Promise<T>): Promise<T> {
 
 const explorer = (hash: string) => `${config.explorerBase}/tx/${hash}`;
 
+/**
+ * Sends a state-changing call with a 30% gas headroom over the estimate.
+ * FTSOv2 reads inside fundInvoice/settleInvoice vary in cost block to block
+ * (feed-update folding), so a bare estimate used as the gas limit
+ * intermittently runs out of gas.
+ */
+async function sendWithHeadroom(c: Contract, fn: string, args: unknown[], overrides: Record<string, unknown> = {}) {
+  const f = c.getFunction(fn);
+  const est: bigint = await f.estimateGas(...args, overrides);
+  return f(...args, { ...overrides, gasLimit: (est * 13n) / 10n });
+}
+
 export interface TxResult {
   hash: string;
   explorer: string;
@@ -72,6 +84,8 @@ export interface ChainStats {
   totalDefaultedFlr: bigint;
   invoiceCount: number;
   attestationCount: number;
+  /** FXRP (settlement-token) units held by the pool as an oracle-priced reserve. */
+  settlementTokenReserve: bigint;
 }
 
 function mapInvoice(r: any): ChainInvoice {
@@ -110,6 +124,7 @@ const realChain = {
       totalDefaultedFlr: s.totalDefaultedFlr,
       invoiceCount: Number(s.invoiceCount),
       attestationCount: Number(s.attestationCount),
+      settlementTokenReserve: s.settlementTokenReserve ?? 0n,
     };
   },
 
@@ -136,7 +151,7 @@ const realChain = {
     decisionHash: string,
   ) {
     return enqueue("agent", async () => {
-      const tx = await hub("agent").registerInvoice(proof, supplier, risk, discountBps, decisionHash);
+      const tx = await sendWithHeadroom(hub("agent"), "registerInvoice", [proof, supplier, risk, discountBps, decisionHash]);
       const rc = await tx.wait();
       const id = await extractInvoiceId(rc);
       return { id, hash: tx.hash, explorer: explorer(tx.hash) };
@@ -145,7 +160,7 @@ const realChain = {
 
   fund(id: number): Promise<TxResult> {
     return enqueue("agent", async () => {
-      const tx = await hub("agent").fundInvoice(id);
+      const tx = await sendWithHeadroom(hub("agent"), "fundInvoice", [id]);
       await tx.wait();
       return { hash: tx.hash, explorer: explorer(tx.hash) };
     });
@@ -153,15 +168,49 @@ const realChain = {
 
   settle(id: number, valueWei: bigint): Promise<TxResult> {
     return enqueue("debtor", async () => {
-      const tx = await hub("debtor").settleInvoice(id, { value: valueWei });
+      const tx = await sendWithHeadroom(hub("debtor"), "settleInvoice", [id], { value: valueWei });
+      await tx.wait();
+      return { hash: tx.hash, explorer: explorer(tx.hash) };
+    });
+  },
+
+  /** Quotes the USD face value in settlement-token units (e.g. FXRP). */
+  async quoteUsdCentsInToken(cents: number | bigint): Promise<bigint> {
+    return hubRead().quoteUsdCentsInToken(cents);
+  },
+
+  /**
+   * Settles in the ERC-20 settlement asset (FXRP): mints demo tokens to the
+   * debtor if needed (DemoFXRP only), approves the hub, then settles. The
+   * pool receives tokens valued through the XRP/USD FTSOv2 feed.
+   */
+  settleInToken(id: number, tokenAmount: bigint): Promise<TxResult> {
+    return enqueue("debtor", async () => {
+      if (!config.fxrp) throw new Error("FAKTURA_FXRP not configured");
+      const debtorWallet = wallets.debtor;
+      const fxrp = new Contract(
+        config.fxrp,
+        [
+          "function balanceOf(address) view returns (uint256)",
+          "function approve(address,uint256) returns (bool)",
+          "function mint(address,uint256)",
+        ],
+        debtorWallet,
+      );
+      const balance: bigint = await fxrp.balanceOf(debtorWallet.address);
+      if (balance < tokenAmount) {
+        await (await fxrp.mint(debtorWallet.address, tokenAmount - balance)).wait();
+      }
+      await (await fxrp.approve(config.contract, tokenAmount)).wait();
+      const tx = await sendWithHeadroom(hub("debtor"), "settleInvoiceInToken", [id]);
       await tx.wait();
       return { hash: tx.hash, explorer: explorer(tx.hash) };
     });
   },
 
   markDefault(id: number): Promise<TxResult> {
-    return enqueue("collector" in wallets ? "agent" : "agent", async () => {
-      const tx = await hub("agent").markDefault(id);
+    return enqueue("agent", async () => {
+      const tx = await sendWithHeadroom(hub("agent"), "markDefault", [id]);
       await tx.wait();
       return { hash: tx.hash, explorer: explorer(tx.hash) };
     });
@@ -169,7 +218,7 @@ const realChain = {
 
   deposit(persona: Persona, valueWei: bigint): Promise<TxResult> {
     return enqueue(persona, async () => {
-      const tx = await hub(persona).deposit({ value: valueWei });
+      const tx = await sendWithHeadroom(hub(persona), "deposit", [], { value: valueWei });
       await tx.wait();
       return { hash: tx.hash, explorer: explorer(tx.hash) };
     });
@@ -177,7 +226,7 @@ const realChain = {
 
   attest(kind: string, subjectId: number, payloadHash: string, model: string): Promise<TxResult & { id: number }> {
     return enqueue("agent", async () => {
-      const tx = await hub("agent").attest(kind, subjectId, payloadHash, model);
+      const tx = await sendWithHeadroom(hub("agent"), "attest", [kind, subjectId, payloadHash, model]);
       const rc = await tx.wait();
       const id = await extractAttestationId(rc);
       return { id, hash: tx.hash, explorer: explorer(tx.hash) };
@@ -185,7 +234,7 @@ const realChain = {
   },
 
   async setFdcEnforced(enforced: boolean): Promise<TxResult> {
-    const tx = await hub("agent").setFdcEnforced(enforced);
+    const tx = await sendWithHeadroom(hub("agent"), "setFdcEnforced", [enforced]);
     await tx.wait();
     return { hash: tx.hash, explorer: explorer(tx.hash) };
   },

@@ -1,0 +1,35 @@
+{
+  "_readme": "Supplier system-of-record export served over public HTTPS. The FDC Web2Json attestation reads THIS document; FakturaHub decodes the attested facts on-chain. documentSha256 = sha256 of the `document` string (verify: printf %s \"$document\" | shasum -a 256).",
+  "invoice": {
+    "number": "INV-2026-0042",
+    "currency": "USD",
+    "amountCents": 90,
+    "issuedAt": "2026-07-01",
+    "dueAt": "2026-09-30T00:00:00Z",
+    "dueTs": 1790726400,
+    "supplier": {
+      "name": "Nordwind Logistics GmbH",
+      "country": "DE",
+      "vatId": "DE811223344"
+    },
+    "debtor": {
+      "name": "Aurora Retail AG",
+      "rating": "BBB",
+      "tag": "debtor:aurora-retail-ag"
+    },
+    "description": "Freight Hamburg-Vienna, 14 pallet shipments, June 2026",
+    "document": "INVOICE INV-2026-0042 | Nordwind Logistics GmbH -> Aurora Retail AG | USD 0.90 | Freight Hamburg-Vienna, 14 pallet shipments, June 2026 | issued 2026-07-01 | due 2026-09-30T00:00:00Z",
+    "documentSha256": "sha256:a73f4a3247628ae525aa4105fe446434f83beddd084840b2adeff65548157dcf",
+    "lineItems": [
+      {
+        "description": "Freight Hamburg-Vienna, 14 pallet shipments, June 2026",
+        "amountCents": 90
+      }
+    ],
+    "history": {
+      "priorInvoices": 6,
+      "paidOnTime": 6,
+      "disputes": 0
+    }
+  }
+}

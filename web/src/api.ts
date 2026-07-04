@@ -45,6 +45,8 @@ export interface InvoiceRecord {
     attestHashes: string[];
     advanceFlrWei?: string;
     fdcAttested?: boolean;
+    fdcVotingRound?: number;
+    fdcRequestTx?: string;
   };
 }
 
@@ -57,6 +59,8 @@ export interface ChainStats {
   totalDefaultedFlr: string;
   invoiceCount: number;
   attestationCount: number;
+  /** FXRP units (6 decimals) held by the pool as an oracle-priced reserve. */
+  settlementTokenReserve?: string;
 }
 
 export interface OnchainInvoice {
@@ -100,6 +104,8 @@ export const api = {
     }).then((r) => j<{ ok: boolean }>(r)),
   settle: (id: number) =>
     fetch(`/api/demo/settle/${id}`, { method: "POST" }).then((r) => j<{ ok: boolean }>(r)),
+  settleFxrp: (id: number) =>
+    fetch(`/api/demo/settle-fxrp/${id}`, { method: "POST" }).then((r) => j<{ ok: boolean }>(r)),
 };
 
 /** FLR wei (1e18) → FLR number. */

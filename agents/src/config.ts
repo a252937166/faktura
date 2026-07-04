@@ -92,14 +92,52 @@ export const config = {
   },
 
   /**
-   * FDC gating. When "demo", the agent flips the on-chain `fdcEnforced` flag off
-   * at boot so the interactive demo registers invoices instantly. The real
-   * Web2Json attestation path lives in scripts/registerViaFdc.ts. Set
-   * FAKTURA_FDC=strict to keep on-chain enforcement on.
+   * FDC gating.
+   *  - "strict": every registration goes through a REAL Web2Json attestation
+   *    (verifier → FdcHub → voting round → DA-layer Merkle proof) and the
+   *    contract verifies it on-chain (fdcEnforced=true). Takes ~3–5 min per
+   *    invoice. Same flow as contracts/scripts/registerViaFdc.ts.
+   *  - "demo": the agent flips the on-chain `fdcEnforced` flag off at boot so
+   *    the interactive demo registers instantly (facts still ABI-encoded
+   *    exactly as the Web2Json response would deliver them). Demo mode is an
+   *    interaction accelerator, not the proof path.
    */
   fdcMode: process.env.FAKTURA_FDC ?? "demo",
 
+  /** Flare FDC endpoints (testnet defaults, same as flare-hardhat-starter). */
+  fdc: {
+    verifierUrl:
+      process.env.VERIFIER_URL_TESTNET ?? "https://fdc-verifiers-testnet.flare.network",
+    verifierApiKey:
+      process.env.VERIFIER_API_KEY_TESTNET ?? "00000000-0000-0000-0000-000000000000",
+    daLayerUrl:
+      process.env.COSTON2_DA_LAYER_URL ?? "https://ctn2-data-availability.flare.network",
+  },
+
+  /**
+   * Supplier system-of-record (ERP). Strict-mode attestations read the
+   * invoice document from `urlTemplate` ({number} → invoice number). The
+   * default is the repo's committed ERP export served by GitHub Pages — the
+   * same prefix the contract pins via `erpUrlPrefix`. (Pages, not raw
+   * githubusercontent: the FDC Web2Json verifier requires the source to
+   * respond with Content-Type application/json.) A hosted deployment can
+   * point this at its own public `/erp/invoices/{number}` endpoint instead.
+   */
+  erp: {
+    urlTemplate:
+      process.env.FAKTURA_ERP_URL_TEMPLATE ??
+      "https://a252937166.github.io/faktura/erp/{number}.json",
+    /** Local directory of bundled ERP documents (served at /erp/invoices/:number). */
+    docsDir: path.join(ROOT, "docs/erp"),
+  },
+
+  /** DemoFXRP settlement token on Coston2 (canonical FXRP on mainnet). */
+  fxrp: process.env.FAKTURA_FXRP ?? "",
+
   dataDir: process.env.FAKTURA_DATA_DIR ?? path.join(ROOT, "agents/data"),
+  /** Where the exact bytes of every anchored decision memo are persisted. */
+  memosDir:
+    process.env.FAKTURA_MEMOS_DIR ?? path.join(ROOT, "agents/data/memos"),
 };
 
 export type Persona = keyof typeof config.keys;

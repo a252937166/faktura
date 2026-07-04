@@ -1,8 +1,10 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { formatEther } from "ethers";
 import { chain } from "./chain.js";
 import { config } from "./config.js";
-import { buildDemoProof } from "./fdc.js";
+import { buildDemoProof, erpUrlFor, requestWeb2JsonProof } from "./fdc.js";
 import { feed } from "./feed.js";
 import { underwrite as llmUnderwrite } from "./llm.js";
 import { db, upsertInvoice, type InvoiceRecord } from "./store.js";
@@ -21,6 +23,18 @@ export interface IntakeInput {
 }
 
 const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
+
+/**
+ * Persists the exact bytes whose sha256 is anchored on-chain, so anyone can
+ * re-hash the file and compare against the contract's `decisionHash` /
+ * attestation `payloadHash` (served at GET /api/memos/:hash).
+ */
+function persistMemo(memoJson: string, decisionHash: string): string {
+  fs.mkdirSync(config.memosDir, { recursive: true });
+  const file = path.join(config.memosDir, `${decisionHash.replace("sha256:", "sha256-")}.json`);
+  fs.writeFileSync(file, memoJson);
+  return file;
+}
 
 /**
  * Autonomous underwriting pipeline:
@@ -122,17 +136,22 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
     }
   }
 
-  const memo = {
-    intakeId,
-    invoiceNumber: input.invoiceNumber,
-    decidedAt: new Date().toISOString(),
-    provider,
-    model,
-    opinion,
-    applied: { approve, risk_score, discount_bps },
-    policyNotes,
-  };
-  const decisionHash = `sha256:${sha256(JSON.stringify(memo))}`;
+  const memoJson = JSON.stringify(
+    {
+      intakeId,
+      invoiceNumber: input.invoiceNumber,
+      decidedAt: new Date().toISOString(),
+      provider,
+      model,
+      opinion,
+      applied: { approve, risk_score, discount_bps },
+      policyNotes,
+    },
+    null,
+    2,
+  );
+  const decisionHash = `sha256:${sha256(memoJson)}`;
+  persistMemo(memoJson, decisionHash);
 
   if (!approve) {
     return finalizeReject(record, {
@@ -168,13 +187,49 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
   });
 
   const supplier = input.supplierAddress ?? chain.address("debtor");
-  const proof = buildDemoProof({
-    invoiceNumber: input.invoiceNumber,
-    debtorTag: record.intake.debtorTag,
-    docHash: record.intake.docHash,
-    amountUsdCents: BigInt(Math.round(input.amountUsd * 100)),
-    dueTs: Math.floor(input.dueTs / 1000),
-  });
+
+  let proof: unknown;
+  if (config.fdcMode === "strict") {
+    // Real Web2Json attestation: the facts registered on-chain come from the
+    // supplier's system of record via the Flare Data Connector, not from the
+    // intake form. ~3–5 minutes (one voting round + finalization).
+    try {
+      const strict = await requestWeb2JsonProof(erpUrlFor(input.invoiceNumber), (message) =>
+        feed.publish({ actor: "underwriter", kind: "fdc", message }),
+      );
+      const attested = strict.facts;
+      if (Number(attested.amountUsdCents) !== Math.round(input.amountUsd * 100)) {
+        return finalizeReject(record, {
+          riskScore: 100,
+          discountBps: discount_bps,
+          rationale: `Intake amount $${input.amountUsd} does not match the attested system-of-record amount $${Number(attested.amountUsdCents) / 100}.`,
+          redFlags: ["intake/system-of-record mismatch"],
+          model: "fdc-crosscheck",
+          policyNotes,
+        });
+      }
+      record.chain.fdcVotingRound = strict.votingRound;
+      record.chain.fdcRequestTx = strict.attestationRequestTx;
+      proof = strict.proof;
+    } catch (e) {
+      return finalizeReject(record, {
+        riskScore: 100,
+        discountBps: discount_bps,
+        rationale: `Strict FDC mode: the invoice could not be attested from the system of record (${(e as Error).message.slice(0, 160)}). Unattestable receivables are not financed.`,
+        redFlags: ["no attestable system-of-record document"],
+        model: "fdc-gate",
+        policyNotes,
+      });
+    }
+  } else {
+    proof = buildDemoProof({
+      invoiceNumber: input.invoiceNumber,
+      debtorTag: record.intake.debtorTag,
+      docHash: record.intake.docHash,
+      amountUsdCents: BigInt(Math.round(input.amountUsd * 100)),
+      dueTs: Math.floor(input.dueTs / 1000),
+    });
+  }
 
   const reg = await chain.registerWithProof(proof, supplier, risk_score, discount_bps, decisionHash);
   record.id = reg.id;
@@ -184,7 +239,11 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
   feed.publish({
     actor: "underwriter",
     kind: "onchain",
-    message: `Invoice #${record.id} registered on Coston2 (facts ${config.fdcMode === "strict" ? "FDC-attested" : "FDC-encoded"})`,
+    message: `Invoice #${record.id} registered on Coston2 (facts ${
+      config.fdcMode === "strict"
+        ? `FDC-attested, round ${record.chain.fdcVotingRound}`
+        : "FDC-encoded (demo mode)"
+    })`,
     invoiceId: record.id,
     deployHash: reg.hash,
   });
@@ -229,8 +288,22 @@ async function finalizeReject(
     decisionHash?: string;
   },
 ): Promise<InvoiceRecord> {
-  const decisionHash =
-    d.decisionHash ?? `sha256:${sha256(JSON.stringify({ intakeId: record.intakeId, ...d }))}`;
+  let decisionHash = d.decisionHash;
+  if (!decisionHash) {
+    const memoJson = JSON.stringify(
+      {
+        intakeId: record.intakeId,
+        invoiceNumber: record.intake.invoiceNumber,
+        kind: "UNDERWRITE_REJECT",
+        decidedAt: new Date().toISOString(),
+        ...d,
+      },
+      null,
+      2,
+    );
+    decisionHash = `sha256:${sha256(memoJson)}`;
+    persistMemo(memoJson, decisionHash);
+  }
   record.decision = {
     approve: false,
     riskScore: d.riskScore,

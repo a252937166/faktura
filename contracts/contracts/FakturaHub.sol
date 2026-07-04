@@ -15,6 +15,13 @@ interface IFdcProofVerifier {
     function verifyWeb2Json(IWeb2Json.Proof calldata _proof) external view returns (bool);
 }
 
+/// @dev Minimal ERC-20 surface used for the interoperable settlement leg
+/// (FXRP / stablecoins). Kept tiny on purpose.
+interface IERC20Minimal {
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+}
+
 /// @dev Invoice facts attested by the Flare Data Connector (Web2Json) from the
 /// supplier's system of record. Field order must match the `abiSignature`
 /// used in the attestation request.
@@ -54,6 +61,43 @@ contract FakturaHub {
     /// so the demo survives testnet attestation outages (state is public and
     /// every toggle is evented for transparency).
     bool public fdcEnforced = true;
+
+    /// @notice When set, FDC-attested registrations must read their facts from
+    /// a URL starting with this prefix — the pinned supplier system of record.
+    /// A compromised agent key can then only register receivables that the
+    /// pinned ERP actually served (and FDC attested), not ones it invented.
+    string public erpUrlPrefix;
+
+    /// @notice Hard underwriting limits enforced on-chain. The AI agent
+    /// proposes risk/pricing, but registrations and fundings outside these
+    /// bounds revert regardless of what the agent (or its stolen key) says.
+    struct RiskPolicy {
+        uint16 maxRiskScore; // reject riskier registrations
+        uint16 minDiscountBps; // pricing floor
+        uint16 maxDiscountBps; // pricing ceiling
+        uint16 maxAdvanceBpsOfLiquid; // single-invoice exposure cap vs liquid
+        uint64 maxTenorSeconds; // longest allowed time to due date
+    }
+
+    RiskPolicy public riskPolicy =
+        RiskPolicy({
+            maxRiskScore: 65,
+            minDiscountBps: 50,
+            maxDiscountBps: 2500,
+            maxAdvanceBpsOfLiquid: 6000,
+            maxTenorSeconds: 120 days
+        });
+
+    // ------------------------------------------------------------------
+    // Interoperable settlement leg (FXRP / FAssets / stablecoins)
+    // ------------------------------------------------------------------
+    /// @notice Optional ERC-20 settlement asset (e.g. FXRP). Debtors can pay
+    /// the USD face value in this token at the live FTSOv2 cross rate; the
+    /// pool carries the reserve and values it through the oracle.
+    IERC20Minimal public settlementToken;
+    bytes21 public settlementTokenFeedId; // e.g. XRP/USD
+    uint8 public settlementTokenDecimals;
+    uint256 public settlementTokenReserve; // token units held by the pool
 
     // ------------------------------------------------------------------
     // Invoices
@@ -139,7 +183,22 @@ contract FakturaHub {
         int8 rateDecimals
     );
     event InvoiceSettled(uint64 indexed id, uint256 paidFlrWei, int256 poolYieldFlrWei);
+    event InvoiceSettledInToken(
+        uint64 indexed id,
+        address indexed token,
+        uint256 tokenAmount,
+        uint256 flrEquivalentWei
+    );
     event InvoiceDefaulted(uint64 indexed id, uint256 lossFlrWei);
+    event RiskPolicySet(
+        uint16 maxRiskScore,
+        uint16 minDiscountBps,
+        uint16 maxDiscountBps,
+        uint16 maxAdvanceBpsOfLiquid,
+        uint64 maxTenorSeconds
+    );
+    event TokenSettlementConfigured(address token, bytes21 feedId, uint8 decimals);
+    event ErpUrlPrefixSet(string prefix);
     event AgentAttested(
         uint64 indexed id,
         address indexed actor,
@@ -154,9 +213,14 @@ contract FakturaHub {
     error NotAgent();
     error NotCollector();
     error InvalidProof();
+    error UntrustedSource();
     error DuplicateDocument();
     error InvalidState();
     error InvalidParams();
+    error PolicyViolation();
+    error ExposureCapExceeded();
+    error TokenSettlementDisabled();
+    error TokenTransferFailed();
     error InsufficientLiquidity();
     error InsufficientShares();
     error PaymentTooLow();
@@ -211,13 +275,69 @@ contract FakturaHub {
         emit FdcEnforcementSet(_enforced);
     }
 
+    /// @notice Pins the supplier system-of-record URL prefix for FDC-attested
+    /// registrations. Empty string disables the check.
+    function setErpUrlPrefix(string calldata _prefix) external onlyAdmin {
+        erpUrlPrefix = _prefix;
+        emit ErpUrlPrefixSet(_prefix);
+    }
+
+    /// @notice Updates the on-chain underwriting limits.
+    function setRiskPolicy(RiskPolicy calldata p) external onlyAdmin {
+        if (
+            p.maxRiskScore > 100 ||
+            p.minDiscountBps > p.maxDiscountBps ||
+            p.maxDiscountBps >= 10_000 ||
+            p.maxAdvanceBpsOfLiquid == 0 ||
+            p.maxAdvanceBpsOfLiquid > 10_000 ||
+            p.maxTenorSeconds == 0
+        ) revert InvalidParams();
+        riskPolicy = p;
+        emit RiskPolicySet(
+            p.maxRiskScore,
+            p.minDiscountBps,
+            p.maxDiscountBps,
+            p.maxAdvanceBpsOfLiquid,
+            p.maxTenorSeconds
+        );
+    }
+
+    /// @notice Enables settlement in an ERC-20 asset (e.g. FXRP) priced by a
+    /// second FTSOv2 feed (e.g. XRP/USD). Zero address disables it.
+    function configureTokenSettlement(
+        address token,
+        bytes21 tokenFeedId,
+        uint8 tokenDecimals
+    ) external onlyAdmin {
+        if (token != address(0) && tokenDecimals > 30) revert InvalidParams();
+        settlementToken = IERC20Minimal(token);
+        settlementTokenFeedId = tokenFeedId;
+        settlementTokenDecimals = tokenDecimals;
+        emit TokenSettlementConfigured(token, tokenFeedId, tokenDecimals);
+    }
+
     // ------------------------------------------------------------------
     // Liquidity pool
     // ------------------------------------------------------------------
 
-    /// @notice Pool value in FLR wei (liquid + capital at work).
+    /// @notice Pool value in FLR wei: liquid + capital at work + the FLR
+    /// value of the ERC-20 settlement reserve (priced through FTSOv2).
     function poolValue() public view returns (uint256) {
-        return liquid + deployedCapital;
+        return liquid + deployedCapital + settlementReserveFlrValue();
+    }
+
+    /// @notice FLR-wei value of the pool's settlement-token reserve, priced
+    /// via token/USD and FLR/USD FTSOv2 feeds. Zero when the leg is unused.
+    function settlementReserveFlrValue() public view returns (uint256) {
+        uint256 reserve = settlementTokenReserve;
+        if (reserve == 0) return 0;
+        (uint256 tokenRate, int8 tokenDec, ) = _readFeed(settlementTokenFeedId);
+        (uint256 flrRate, int8 flrDec, ) = _readFeed(feedId);
+        if (tokenDec < 0 || tokenDec > 30 || flrDec < 0 || flrDec > 30) revert StaleRate();
+        // flrWei = reserve/10^tokUnits * (tokenRate/10^tokenDec) / (flrRate/10^flrDec) * 1e18
+        return
+            (reserve * tokenRate * (10 ** uint8(flrDec)) * 1e18) /
+            ((10 ** settlementTokenDecimals) * (10 ** uint8(tokenDec)) * flrRate);
     }
 
     function deposit() external payable {
@@ -261,7 +381,15 @@ contract FakturaHub {
         uint16 discountBps,
         string calldata decisionHash
     ) external onlyAgent returns (uint64 id) {
-        if (fdcEnforced && !fdcVerifier.verifyWeb2Json(proof)) revert InvalidProof();
+        if (fdcEnforced) {
+            if (!fdcVerifier.verifyWeb2Json(proof)) revert InvalidProof();
+            // Provenance pinning: attested facts must come from the approved
+            // supplier system of record, not any URL of the agent's choosing.
+            if (
+                bytes(erpUrlPrefix).length > 0 &&
+                !_hasPrefix(proof.data.requestBody.url, erpUrlPrefix)
+            ) revert UntrustedSource();
+        }
 
         InvoiceFacts memory facts = abi.decode(
             proof.data.responseBody.abiEncodedData,
@@ -272,6 +400,16 @@ contract FakturaHub {
             revert InvalidParams();
         if (facts.amountUsdCents == 0) revert ZeroAmount();
         if (facts.dueTs <= block.timestamp) revert InvalidParams();
+
+        // On-chain underwriting limits: the agent's pricing must sit inside
+        // the admin-set policy envelope no matter what the model proposed.
+        RiskPolicy memory pol = riskPolicy;
+        if (
+            riskScore > pol.maxRiskScore ||
+            discountBps < pol.minDiscountBps ||
+            discountBps > pol.maxDiscountBps ||
+            facts.dueTs > block.timestamp + pol.maxTenorSeconds
+        ) revert PolicyViolation();
 
         bytes32 docKey = keccak256(bytes(facts.docHash));
         if (usedDocHashes[docKey]) revert DuplicateDocument();
@@ -314,6 +452,9 @@ contract FakturaHub {
         uint256 advanceWei = usdCentsToFlrWei(advanceUsdCents, rate, dec);
 
         if (advanceWei > liquid) revert InsufficientLiquidity();
+        // Single-invoice exposure cap, enforced on-chain against liquid capital.
+        if (advanceWei * 10_000 > liquid * riskPolicy.maxAdvanceBpsOfLiquid)
+            revert ExposureCapExceeded();
         liquid -= advanceWei;
         deployedCapital += advanceWei;
         totalFundedFlr += advanceWei;
@@ -351,6 +492,32 @@ contract FakturaHub {
             msg.value,
             int256(msg.value) - int256(inv.advanceFlrWei)
         );
+    }
+
+    /// @notice Settles an invoice in the configured ERC-20 settlement asset
+    /// (e.g. FXRP): the debtor pays the USD face value in tokens at the live
+    /// FTSOv2 token/USD rate. The pool holds the tokens as an oracle-priced
+    /// reserve. Caller must approve at least the quoted amount first.
+    function settleInvoiceInToken(uint64 id) external {
+        if (address(settlementToken) == address(0)) revert TokenSettlementDisabled();
+        Invoice storage inv = _loadInvoice(id);
+        if (inv.state != State.Funded) revert InvalidState();
+
+        uint256 tokenAmount = quoteUsdCentsInToken(inv.faceUsdCents);
+        if (tokenAmount == 0) revert PaymentTooLow();
+        if (!settlementToken.transferFrom(msg.sender, address(this), tokenAmount))
+            revert TokenTransferFailed();
+
+        uint256 flrEquivalent = quoteUsdCentsInFlrWei(inv.faceUsdCents);
+        deployedCapital -= inv.advanceFlrWei;
+        settlementTokenReserve += tokenAmount;
+        totalSettledFlr += flrEquivalent;
+
+        inv.state = State.Settled;
+        inv.settledFlrWei = flrEquivalent;
+        inv.closedTs = uint64(block.timestamp);
+
+        emit InvoiceSettledInToken(id, address(settlementToken), tokenAmount, flrEquivalent);
     }
 
     /// @notice Writes off a funded invoice past due + grace. Collector only.
@@ -418,6 +585,7 @@ contract FakturaHub {
         uint256 totalDefaultedFlr;
         uint64 invoiceCount;
         uint64 attestationCount;
+        uint256 settlementTokenReserve;
     }
 
     function stats() external view returns (Stats memory) {
@@ -430,7 +598,8 @@ contract FakturaHub {
                 totalSettledFlr,
                 totalDefaultedFlr,
                 invoiceCount,
-                attestationCount
+                attestationCount,
+                settlementTokenReserve
             );
     }
 
@@ -439,6 +608,19 @@ contract FakturaHub {
     function quoteUsdCentsInFlrWei(uint256 usdCents) public view returns (uint256) {
         (uint256 rate, int8 dec, ) = _readRate();
         return usdCentsToFlrWei(usdCents, rate, dec);
+    }
+
+    /// @notice Quotes how much of the settlement token (smallest units)
+    /// `usdCents` is worth at the live token/USD FTSOv2 rate. Rounds up so
+    /// token settlements can never underpay the pool by truncation.
+    function quoteUsdCentsInToken(uint256 usdCents) public view returns (uint256) {
+        if (address(settlementToken) == address(0)) revert TokenSettlementDisabled();
+        (uint256 rate, int8 dec, ) = _readFeed(settlementTokenFeedId);
+        if (rate == 0 || dec < 0 || dec > 30) revert StaleRate();
+        // tokens = usd / price = (cents/100) / (rate/10^dec), in 10^tokenDec units
+        uint256 numerator = usdCents * (10 ** uint8(dec)) * (10 ** settlementTokenDecimals);
+        uint256 denominator = 100 * rate;
+        return (numerator + denominator - 1) / denominator;
     }
 
     /// @dev flrWei = usd * 1e18 / price, usd = cents/100, price = rate/10^dec
@@ -456,8 +638,23 @@ contract FakturaHub {
     function abiSignatureHack(InvoiceFacts calldata) external pure {}
 
     function _readRate() internal view returns (uint256 rate, int8 dec, uint64 ts) {
-        (rate, dec, ts) = ftso.getFeedById(feedId);
+        return _readFeed(feedId);
+    }
+
+    function _readFeed(bytes21 _feedId) internal view returns (uint256 rate, int8 dec, uint64 ts) {
+        (rate, dec, ts) = ftso.getFeedById(_feedId);
         if (rate == 0) revert StaleRate();
+    }
+
+    /// @dev True when `str` starts with `prefix`.
+    function _hasPrefix(string memory str, string memory prefix) internal pure returns (bool) {
+        bytes memory s = bytes(str);
+        bytes memory p = bytes(prefix);
+        if (p.length > s.length) return false;
+        for (uint256 i = 0; i < p.length; i++) {
+            if (s[i] != p[i]) return false;
+        }
+        return true;
     }
 
     function _loadInvoice(uint64 id) internal view returns (Invoice storage inv) {

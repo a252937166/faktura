@@ -1,0 +1,11 @@
+{
+  "kind": "STRICT_FDC_REGISTRATION",
+  "source": "https://jsonblob.com/api/jsonBlob/019f2c34-3753-7221-9b33-5556cbbd4806",
+  "votingRound": 1385814,
+  "invoiceNumber": "INV-2026-0040",
+  "amountUsdCents": 80,
+  "dueTs": 1793404800,
+  "riskScore": 28,
+  "discountBps": 220,
+  "note": "facts decoded on-chain from the FDC Web2Json attested response"
+}

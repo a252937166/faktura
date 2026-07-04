@@ -5,14 +5,17 @@ import { provider } from "./chain.js";
 import { feed } from "./feed.js";
 
 /**
- * x402 (HTTP 402 Payment Required) gate for the Faktura risk oracle.
+ * x402-INSPIRED (HTTP 402 Payment Required) gate for the Faktura risk oracle.
  *
- * Wire format follows the x402 PaymentRequirements shape (the same
- * `accepts[]` / `PAYMENT-SIGNATURE` model as the Coinbase/EVM x402 standard),
- * settled natively on Flare Coston2: the buyer sends a plain FLR transfer to
- * the oracle whose calldata carries the issued nonce, then replays the request
- * with the transaction hash as proof. The server verifies the tx on-chain
- * (recipient, value, nonce, success) before releasing the paid content.
+ * The wire format borrows the x402 PaymentRequirements shape (`accepts[]`,
+ * a payment-proof header) but settlement is Flare-native rather than the
+ * Coinbase x402 EIP-3009 stablecoin scheme: the buyer sends a plain FLR
+ * transfer to the oracle with the issued nonce in calldata, then replays the
+ * request with the transaction hash in `PAYMENT-SIGNATURE`. The server
+ * verifies the tx on-chain (recipient, value, nonce, success, single use)
+ * before releasing the paid content. Machine-payable, pay-per-call — an
+ * honest label for it is "x402-inspired risk oracle with Flare-native
+ * settlement", not a claim of full x402 standard compliance.
  */
 
 interface PendingCharge {
@@ -28,13 +31,13 @@ function paymentRequirements(req: Request, nonce: string) {
     x402Version: 1,
     accepts: [
       {
-        scheme: "exact",
+        scheme: "exact-native", // x402-inspired; native-FLR settlement, not EIP-3009
         network: "flare:coston2",
         maxAmountRequired: config.x402.priceWei,
         asset: "native-FLR",
         payTo: config.x402.payTo,
         resource: req.originalUrl,
-        description: "Faktura verified risk report (machine-payable oracle)",
+        description: "Faktura verified risk report (x402-inspired machine-payable oracle)",
         mimeType: "application/json",
         maxTimeoutSeconds: Math.floor(config.x402.ttlMs / 1000),
         extra: {

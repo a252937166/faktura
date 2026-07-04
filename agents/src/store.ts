@@ -50,6 +50,10 @@ export interface InvoiceRecord {
     attestHashes: string[];
     advanceFlrWei?: string;
     fdcAttested?: boolean;
+    /** Strict mode: FDC voting round the facts were attested in. */
+    fdcVotingRound?: number;
+    /** Strict mode: FdcHub.requestAttestation tx hash. */
+    fdcRequestTx?: string;
   };
 }
 

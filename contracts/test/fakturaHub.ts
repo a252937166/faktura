@@ -215,4 +215,118 @@ describe("FakturaHub", () => {
     expect(a.kind).to.equal("UNDERWRITE_REJECT");
     expect(await hub.attestationCount()).to.equal(1n);
   });
+
+  it("enforces the on-chain risk policy at registration", async () => {
+    const due = (await now()) + 30 * 24 * 3600;
+    const facts = (docHash: string, dueTs = due) =>
+      proofFor(encodeFacts({ invoiceNumber: "P", debtorTag: "d", docHash, amountUsdCents: CENTS_100, dueTs }));
+    const supplierAddr = await supplier.getAddress();
+
+    // risk above the on-chain ceiling
+    await expect(hub.registerInvoice(facts("p1"), supplierAddr, 80, 300, "m"))
+      .to.be.revertedWithCustomError(hub, "PolicyViolation");
+    // discount below the floor
+    await expect(hub.registerInvoice(facts("p2"), supplierAddr, 35, 10, "m"))
+      .to.be.revertedWithCustomError(hub, "PolicyViolation");
+    // discount above the ceiling
+    await expect(hub.registerInvoice(facts("p3"), supplierAddr, 35, 3000, "m"))
+      .to.be.revertedWithCustomError(hub, "PolicyViolation");
+    // tenor beyond the on-chain maximum
+    const farDue = (await now()) + 200 * 24 * 3600;
+    await expect(hub.registerInvoice(facts("p4", farDue), supplierAddr, 35, 300, "m"))
+      .to.be.revertedWithCustomError(hub, "PolicyViolation");
+
+    // policy is admin-gated and takes effect
+    await expect(
+      hub.connect(rando).setRiskPolicy({
+        maxRiskScore: 90, minDiscountBps: 1, maxDiscountBps: 9000,
+        maxAdvanceBpsOfLiquid: 10000, maxTenorSeconds: 400n * 24n * 3600n,
+      }),
+    ).to.be.revertedWithCustomError(hub, "NotAdmin");
+    await hub.setRiskPolicy({
+      maxRiskScore: 90, minDiscountBps: 1, maxDiscountBps: 9000,
+      maxAdvanceBpsOfLiquid: 10000, maxTenorSeconds: 400n * 24n * 3600n,
+    });
+    await hub.registerInvoice(facts("p5", farDue), supplierAddr, 80, 3000, "m");
+    expect(await hub.invoiceCount()).to.equal(1n);
+  });
+
+  it("enforces the exposure cap when funding", async () => {
+    await hub.connect(investor).deposit({ value: 100n * FLR });
+    // advance would be 48.5 FLR = 48.5% of liquid; cap it at 40%
+    await hub.setRiskPolicy({
+      maxRiskScore: 65, minDiscountBps: 50, maxDiscountBps: 2500,
+      maxAdvanceBpsOfLiquid: 4000, maxTenorSeconds: 120n * 24n * 3600n,
+    });
+    const id = await registerInvoice();
+    await expect(hub.fundInvoice(id)).to.be.revertedWithCustomError(hub, "ExposureCapExceeded");
+    // raising the cap unblocks the same invoice
+    await hub.setRiskPolicy({
+      maxRiskScore: 65, minDiscountBps: 50, maxDiscountBps: 2500,
+      maxAdvanceBpsOfLiquid: 6000, maxTenorSeconds: 120n * 24n * 3600n,
+    });
+    await hub.fundInvoice(id);
+    expect((await hub.getInvoice(id)).state).to.equal(2n); // Funded
+  });
+
+  it("pins the FDC source URL to the approved system of record", async () => {
+    await hub.setErpUrlPrefix("https://erp.example/");
+    const due = (await now()) + 3600;
+    const facts = { invoiceNumber: "U", debtorTag: "d", docHash: "u1", amountUsdCents: CENTS_100, dueTs: due };
+
+    const evil = proofFor(encodeFacts(facts));
+    evil.data.requestBody.url = "https://agent-controlled.example/fake-invoice";
+    await expect(
+      hub.registerInvoice(evil, await supplier.getAddress(), 35, 300, "m"),
+    ).to.be.revertedWithCustomError(hub, "UntrustedSource");
+
+    const good = proofFor(encodeFacts(facts));
+    good.data.requestBody.url = "https://erp.example/invoices/U";
+    await hub.registerInvoice(good, await supplier.getAddress(), 35, 300, "m");
+    expect(await hub.invoiceCount()).to.equal(1n);
+
+    // pinning only applies while FDC enforcement is on
+    await hub.setFdcEnforced(false);
+    const other = proofFor(encodeFacts({ ...facts, docHash: "u2" }));
+    other.data.requestBody.url = "https://somewhere-else.example/x";
+    await hub.registerInvoice(other, await supplier.getAddress(), 35, 300, "m");
+    expect(await hub.invoiceCount()).to.equal(2n);
+  });
+
+  it("settles in FXRP: token priced by second FTSO feed, reserve counted in pool value", async () => {
+    const XRP_FEED = "0x015852502f55534400000000000000000000000000"; // XRP/USD
+    const fxrp = await (await ethers.getContractFactory("DemoFXRP")).deploy();
+    await ftso.setFeed(XRP_FEED, 2_000_000n, 6); // XRP = $2.00
+    await hub.configureTokenSettlement(fxrp.target, XRP_FEED, 6);
+
+    await hub.connect(investor).deposit({ value: 200n * FLR });
+    const id = await registerInvoice(); // $1.00 face, 3% discount
+    await hub.fundInvoice(id); // advance 48.5 FLR
+
+    // $1.00 at $2.00/XRP = 0.5 FXRP (6 decimals)
+    const required = await hub.quoteUsdCentsInToken(100);
+    expect(required).to.equal(500_000n);
+
+    await fxrp.mint(await debtor.getAddress(), required);
+    await fxrp.connect(debtor).approve(hub.target, required);
+    // no allowance for more than quoted; settle pulls exactly `required`
+    await hub.connect(debtor).settleInvoiceInToken(id);
+
+    const inv = await hub.getInvoice(id);
+    expect(inv.state).to.equal(3n); // Settled
+    expect(await hub.settlementTokenReserve()).to.equal(required);
+    expect(await fxrp.balanceOf(hub.target)).to.equal(required);
+
+    // reserve = 0.5 FXRP * $2 = $1 = 50 FLR at $0.02 → pool gains 1.5 FLR yield
+    expect(await hub.settlementReserveFlrValue()).to.equal(50n * FLR);
+    expect(await hub.poolValue()).to.equal(200n * FLR - (97n * FLR) / 2n + 50n * FLR);
+    expect(await hub.deployedCapital()).to.equal(0n);
+
+    // token settlement is admin-configured; disabled hub reverts
+    await hub.configureTokenSettlement(ethers.ZeroAddress, XRP_FEED, 6);
+    await expect(hub.quoteUsdCentsInToken(100)).to.be.revertedWithCustomError(
+      hub,
+      "TokenSettlementDisabled",
+    );
+  });
 });

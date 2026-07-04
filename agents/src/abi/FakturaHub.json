@@ -37,6 +37,11 @@
   },
   {
     "inputs": [],
+    "name": "ExposureCapExceeded",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "InsufficientLiquidity",
     "type": "error"
   },
@@ -87,7 +92,27 @@
   },
   {
     "inputs": [],
+    "name": "PolicyViolation",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "StaleRate",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TokenSettlementDisabled",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TokenTransferFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UntrustedSource",
     "type": "error"
   },
   {
@@ -174,6 +199,19 @@
       }
     ],
     "name": "Deposited",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "prefix",
+        "type": "string"
+      }
+    ],
+    "name": "ErpUrlPrefixSet",
     "type": "event"
   },
   {
@@ -311,6 +349,99 @@
       }
     ],
     "name": "InvoiceSettled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "tokenAmount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "flrEquivalentWei",
+        "type": "uint256"
+      }
+    ],
+    "name": "InvoiceSettledInToken",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint16",
+        "name": "maxRiskScore",
+        "type": "uint16"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint16",
+        "name": "minDiscountBps",
+        "type": "uint16"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint16",
+        "name": "maxDiscountBps",
+        "type": "uint16"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint16",
+        "name": "maxAdvanceBpsOfLiquid",
+        "type": "uint16"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "maxTenorSeconds",
+        "type": "uint64"
+      }
+    ],
+    "name": "RiskPolicySet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes21",
+        "name": "feedId",
+        "type": "bytes21"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "decimals",
+        "type": "uint8"
+      }
+    ],
+    "name": "TokenSettlementConfigured",
     "type": "event"
   },
   {
@@ -465,6 +596,29 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes21",
+        "name": "tokenFeedId",
+        "type": "bytes21"
+      },
+      {
+        "internalType": "uint8",
+        "name": "tokenDecimals",
+        "type": "uint8"
+      }
+    ],
+    "name": "configureTokenSettlement",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "deployedCapital",
     "outputs": [
@@ -482,6 +636,19 @@
     "name": "deposit",
     "outputs": [],
     "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "erpUrlPrefix",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -919,6 +1086,25 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "usdCents",
+        "type": "uint256"
+      }
+    ],
+    "name": "quoteUsdCentsInToken",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "components": [
           {
             "internalType": "bytes32[]",
@@ -1044,6 +1230,39 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "riskPolicy",
+    "outputs": [
+      {
+        "internalType": "uint16",
+        "name": "maxRiskScore",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint16",
+        "name": "minDiscountBps",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint16",
+        "name": "maxDiscountBps",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint16",
+        "name": "maxAdvanceBpsOfLiquid",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint64",
+        "name": "maxTenorSeconds",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -1064,12 +1283,65 @@
   {
     "inputs": [
       {
+        "internalType": "string",
+        "name": "_prefix",
+        "type": "string"
+      }
+    ],
+    "name": "setErpUrlPrefix",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "bool",
         "name": "_enforced",
         "type": "bool"
       }
     ],
     "name": "setFdcEnforced",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint16",
+            "name": "maxRiskScore",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "minDiscountBps",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "maxDiscountBps",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "maxAdvanceBpsOfLiquid",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint64",
+            "name": "maxTenorSeconds",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct FakturaHub.RiskPolicy",
+        "name": "p",
+        "type": "tuple"
+      }
+    ],
+    "name": "setRiskPolicy",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1085,6 +1357,84 @@
     "name": "settleInvoice",
     "outputs": [],
     "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "id",
+        "type": "uint64"
+      }
+    ],
+    "name": "settleInvoiceInToken",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "settlementReserveFlrValue",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "settlementToken",
+    "outputs": [
+      {
+        "internalType": "contract IERC20Minimal",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "settlementTokenDecimals",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "settlementTokenFeedId",
+    "outputs": [
+      {
+        "internalType": "bytes21",
+        "name": "",
+        "type": "bytes21"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "settlementTokenReserve",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1151,6 +1501,11 @@
             "internalType": "uint64",
             "name": "attestationCount",
             "type": "uint64"
+          },
+          {
+            "internalType": "uint256",
+            "name": "settlementTokenReserve",
+            "type": "uint256"
           }
         ],
         "internalType": "struct FakturaHub.Stats",

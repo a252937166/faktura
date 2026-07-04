@@ -1,0 +1,35 @@
+{
+  "_readme": "Supplier system-of-record export served over public HTTPS. The FDC Web2Json attestation reads THIS document; FakturaHub decodes the attested facts on-chain. documentSha256 = sha256 of the `document` string (verify: printf %s \"$document\" | shasum -a 256).",
+  "invoice": {
+    "number": "INV-2026-0040",
+    "currency": "USD",
+    "amountCents": 80,
+    "issuedAt": "2026-07-01",
+    "dueAt": "2026-10-31T00:00:00Z",
+    "dueTs": 1793404800,
+    "supplier": {
+      "name": "Baltic Freight OU",
+      "country": "EE",
+      "vatId": "EE102334455"
+    },
+    "debtor": {
+      "name": "Hansa Retail Group AG",
+      "rating": "BBB+",
+      "tag": "debtor:hansa-retail-group"
+    },
+    "description": "Container drayage Tallinn-Riga, 6 loads, June 2026",
+    "document": "INVOICE INV-2026-0040 | Baltic Freight OU -> Hansa Retail Group AG | USD 0.80 | Container drayage Tallinn-Riga, 6 loads, June 2026 | issued 2026-07-01 | due 2026-10-31T00:00:00Z",
+    "documentSha256": "sha256:daebff6df456159ad4e5bf704d81d61fbaa2f3706f08a726466c6904ec987d14",
+    "lineItems": [
+      {
+        "description": "Container drayage Tallinn-Riga, 6 loads, June 2026",
+        "amountCents": 80
+      }
+    ],
+    "history": {
+      "priorInvoices": 4,
+      "paidOnTime": 4,
+      "disputes": 0
+    }
+  }
+}

@@ -6,7 +6,8 @@
   "scripts": {
     "build": "hardhat compile",
     "test": "hardhat test",
-    "deploy:coston2": "hardhat run scripts/deploy.ts --network coston2"
+    "deploy:coston2": "hardhat run scripts/deploy.ts --network coston2",
+    "fdc:register": "hardhat run scripts/registerViaFdc.ts --network coston2"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
