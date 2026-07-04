@@ -127,13 +127,15 @@ async function main() {
   if (strict) {
     // Strict mode registers only what the system of record can attest:
     // the committed docs/erp documents, provably fetched via FDC Web2Json.
-    const doc42 = getErpDocument("INV-2026-0042")!;
+    // (0040/0043 here; 0042 is the fdc:register showcase doc — docHashes are
+    // single-use per hub, so each doc can be strictly registered once.)
+    const doc42 = getErpDocument("INV-2026-0040")!;
     const doc43 = getErpDocument("INV-2026-0043")!;
 
     console.log("\n== intake 1: attested invoice (expect APPROVE + real FDC proof + fund + settle) ==");
     settleTarget = await processIntake({
-      supplierName: String((doc42.invoice.supplier as any)?.name ?? "Nordwind Logistics GmbH"),
-      debtorName: String(doc42.invoice.debtor.name ?? "Aurora Retail AG"),
+      supplierName: String((doc42.invoice.supplier as any)?.name ?? "Baltic Freight OU"),
+      debtorName: String(doc42.invoice.debtor.name ?? "Hansa Retail Group AG"),
       amountUsd: doc42.invoice.amountCents / 100,
       dueTs: doc42.invoice.dueTs * 1000,
       invoiceNumber: doc42.invoice.number,
