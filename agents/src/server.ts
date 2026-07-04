@@ -308,6 +308,18 @@ async function main() {
     seedShowcase();
   } else if (!config.contract) {
     console.warn("FAKTURA_CONTRACT not set — chain features disabled until deploy.");
+  } else if (
+    config.fdcMode === "demo" &&
+    config.evidenceContract &&
+    config.contract.toLowerCase() === config.evidenceContract.toLowerCase()
+  ) {
+    // Hard guard: the evidence hub stays strict forever. Demo mode would flip
+    // its fdcEnforced flag off — refuse to start instead.
+    console.error(
+      `FATAL: demo mode must not target the EVIDENCE hub ${config.evidenceContract}.\n` +
+        `Point FAKTURA_CONTRACT at the demo hub, or run with FAKTURA_FDC=strict.`,
+    );
+    process.exit(1);
   } else {
     config.x402.payTo = chain.address("agent");
     // In demo mode, make sure on-chain FDC enforcement is off so registrations

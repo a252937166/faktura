@@ -228,6 +228,7 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
       docHash: record.intake.docHash,
       amountUsdCents: BigInt(Math.round(input.amountUsd * 100)),
       dueTs: Math.floor(input.dueTs / 1000),
+      supplierWallet: supplier,
     });
   }
 

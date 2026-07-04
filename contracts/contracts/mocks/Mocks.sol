@@ -31,14 +31,22 @@ contract MockFtsoV2 is IFtsoV2Reader {
         feeds[_feedId] = FeedRate(_value, _dec, true);
     }
 
+    /// @dev When non-zero, reported as the feed timestamp (staleness tests).
+    uint64 public tsOverride;
+
+    function setTs(uint64 _ts) external {
+        tsOverride = _ts;
+    }
+
     function getFeedById(bytes21 _feedId)
         external
         view
         returns (uint256, int8, uint64)
     {
+        uint64 ts = tsOverride == 0 ? uint64(block.timestamp) : tsOverride;
         FeedRate memory f = feeds[_feedId];
-        if (f.set) return (f.value, f.dec, uint64(block.timestamp));
-        return (value, dec, uint64(block.timestamp));
+        if (f.set) return (f.value, f.dec, ts);
+        return (value, dec, ts);
     }
 }
 

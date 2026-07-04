@@ -37,8 +37,19 @@ export const config = {
   showcase: process.env.FAKTURA_SHOWCASE === "1",
   seedPath: process.env.FAKTURA_SEED ?? path.join(ROOT, "agents/data/seed.json"),
 
-  /** Deployed FakturaHub address on Coston2. */
-  contract: process.env.FAKTURA_CONTRACT ?? "",
+  /**
+   * Two-address posture:
+   *  - FAKTURA_CONTRACT — the hub the interactive service operates on (the
+   *    DEMO hub; its fdcEnforced flag may be toggled for instant demos);
+   *  - FAKTURA_EVIDENCE_CONTRACT — the EVIDENCE hub, permanently strict
+   *    (fdcEnforced=true, never demoted). Strict-mode runs route here
+   *    automatically, and demo mode refuses to touch it.
+   */
+  contract:
+    (process.env.FAKTURA_FDC ?? "demo") === "strict"
+      ? (process.env.FAKTURA_EVIDENCE_CONTRACT ?? process.env.FAKTURA_CONTRACT ?? "")
+      : (process.env.FAKTURA_CONTRACT ?? ""),
+  evidenceContract: process.env.FAKTURA_EVIDENCE_CONTRACT ?? "",
 
   /** Flare Coston2 network. */
   rpcUrl: process.env.COSTON2_RPC_URL ?? "https://coston2-api.flare.network/ext/C/rpc",

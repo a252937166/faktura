@@ -74,6 +74,17 @@ async function main() {
   console.log(`investor: ${chain.address("investor")}`);
   console.log(`debtor:   ${chain.address("debtor")}`);
 
+  if (
+    !strict &&
+    config.evidenceContract &&
+    config.contract.toLowerCase() === config.evidenceContract.toLowerCase()
+  ) {
+    throw new Error(
+      `demo e2e must not target the EVIDENCE hub ${config.evidenceContract} ` +
+        `(it would flip fdcEnforced off). Set FAKTURA_CONTRACT to the demo hub.`,
+    );
+  }
+
   const enforcedAtStart = await chain.fdcEnforced();
   if (strict && !enforcedAtStart) {
     console.log("strict mode: enabling on-chain FDC enforcement…");
@@ -91,7 +102,7 @@ async function main() {
   // Testnet FLR ≈ $0.007, so USD invoices are intentionally small to fit a
   // faucet-funded pool. On mainnet (or with production FXRP liquidity) the
   // same code handles production-size receivables — see README.
-  await ensureLiquidity(250n * FLR);
+  await ensureLiquidity(200n * FLR);
 
   let settleTarget: InvoiceRecord;
   let fxrpTarget: InvoiceRecord | undefined;
@@ -157,7 +168,7 @@ async function main() {
     settleTarget = await processIntake({
       supplierName: "Nordwind Logistics GmbH",
       debtorName: "Aurora Retail AG",
-      amountUsd: 1.0,
+      amountUsd: 0.8,
       dueTs: Date.now() + 30 * day,
       invoiceNumber: `INV-2026-5${(Date.now() % 100000).toString().padStart(5, "0")}`,
       description: "Freight services, 14 pallet shipments Hamburg to Vienna",

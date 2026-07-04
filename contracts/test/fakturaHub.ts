@@ -19,10 +19,11 @@ function encodeFacts(f: {
   docHash: string;
   amountUsdCents: bigint;
   dueTs: number | bigint;
+  supplierWallet?: string;
 }) {
   return abi.encode(
-    ["tuple(string,string,string,uint256,uint256)"],
-    [[f.invoiceNumber, f.debtorTag, f.docHash, f.amountUsdCents, f.dueTs]],
+    ["tuple(string,string,string,uint256,uint256,address)"],
+    [[f.invoiceNumber, f.debtorTag, f.docHash, f.amountUsdCents, f.dueTs, f.supplierWallet ?? ethers.ZeroAddress]],
   );
 }
 
@@ -76,6 +77,7 @@ describe("FakturaHub", () => {
       docHash: `sha256:${Math.random()}`,
       amountUsdCents: CENTS_100,
       dueTs: due,
+      supplierWallet: await supplier.getAddress(),
       ...over,
     };
     const tx = await hub.registerInvoice(
@@ -218,9 +220,9 @@ describe("FakturaHub", () => {
 
   it("enforces the on-chain risk policy at registration", async () => {
     const due = (await now()) + 30 * 24 * 3600;
-    const facts = (docHash: string, dueTs = due) =>
-      proofFor(encodeFacts({ invoiceNumber: "P", debtorTag: "d", docHash, amountUsdCents: CENTS_100, dueTs }));
     const supplierAddr = await supplier.getAddress();
+    const facts = (docHash: string, dueTs = due) =>
+      proofFor(encodeFacts({ invoiceNumber: "P", debtorTag: "d", docHash, amountUsdCents: CENTS_100, dueTs, supplierWallet: supplierAddr }));
 
     // risk above the on-chain ceiling
     await expect(hub.registerInvoice(facts("p1"), supplierAddr, 80, 300, "m"))
@@ -272,7 +274,10 @@ describe("FakturaHub", () => {
   it("pins the FDC source URL to the approved system of record", async () => {
     await hub.setErpUrlPrefix("https://erp.example/");
     const due = (await now()) + 3600;
-    const facts = { invoiceNumber: "U", debtorTag: "d", docHash: "u1", amountUsdCents: CENTS_100, dueTs: due };
+    const facts = {
+      invoiceNumber: "U", debtorTag: "d", docHash: "u1", amountUsdCents: CENTS_100, dueTs: due,
+      supplierWallet: await supplier.getAddress(),
+    };
 
     const evil = proofFor(encodeFacts(facts));
     evil.data.requestBody.url = "https://agent-controlled.example/fake-invoice";
@@ -328,5 +333,58 @@ describe("FakturaHub", () => {
       hub,
       "TokenSettlementDisabled",
     );
+  });
+
+  it("pays advances to the ATTESTED supplier wallet, not the agent-chosen one", async () => {
+    await hub.connect(investor).deposit({ value: 200n * FLR });
+    const due = (await now()) + 3600;
+    const supplierAddr = await supplier.getAddress();
+    const randoAddr = await rando.getAddress();
+
+    // agent tries to redirect the advance to `rando`; the attested facts say `supplier`
+    const proof = proofFor(
+      encodeFacts({
+        invoiceNumber: "B1", debtorTag: "d", docHash: "b1",
+        amountUsdCents: CENTS_100, dueTs: due, supplierWallet: supplierAddr,
+      }),
+    );
+    await hub.registerInvoice(proof, randoAddr, 35, 300, "m");
+    const id = Number(await hub.invoiceCount());
+    expect((await hub.getInvoice(id)).supplier).to.equal(supplierAddr);
+
+    const before = await ethers.provider.getBalance(supplierAddr);
+    await hub.fundInvoice(id);
+    expect(await ethers.provider.getBalance(supplierAddr)).to.equal(before + (97n * FLR) / 2n);
+
+    // strict mode refuses documents that do not bind a payout wallet
+    const unbound = proofFor(
+      encodeFacts({ invoiceNumber: "B2", debtorTag: "d", docHash: "b2", amountUsdCents: CENTS_100, dueTs: due }),
+    );
+    await expect(hub.registerInvoice(unbound, randoAddr, 35, 300, "m"))
+      .to.be.revertedWithCustomError(hub, "UntrustedSource");
+
+    // demo mode (enforcement off) falls back to the parameter
+    await hub.setFdcEnforced(false);
+    await hub.registerInvoice(unbound, randoAddr, 35, 300, "m");
+    const id2 = Number(await hub.invoiceCount());
+    expect((await hub.getInvoice(id2)).supplier).to.equal(randoAddr);
+  });
+
+  it("rejects stale FTSOv2 feed values (freshness guard)", async () => {
+    await hub.connect(investor).deposit({ value: 200n * FLR });
+    const id = await registerInvoice();
+
+    // feed 2h old vs default 1h bound → all pricing paths revert
+    const staleTs = BigInt(await now()) - 7200n;
+    await ftso.setTs(staleTs);
+    await expect(hub.fundInvoice(id)).to.be.revertedWithCustomError(hub, "StaleRate");
+    await expect(hub.quoteUsdCentsInFlrWei(100)).to.be.revertedWithCustomError(hub, "StaleRate");
+
+    // admin can widen the bound; a fresh-enough feed funds again
+    await expect(hub.connect(rando).setMaxFeedAge(86400)).to.be.revertedWithCustomError(hub, "NotAdmin");
+    await expect(hub.setMaxFeedAge(0)).to.be.revertedWithCustomError(hub, "InvalidParams");
+    await hub.setMaxFeedAge(86400);
+    await hub.fundInvoice(id);
+    expect((await hub.getInvoice(id)).state).to.equal(2n); // Funded
   });
 });

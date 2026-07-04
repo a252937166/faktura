@@ -10,7 +10,8 @@
     "supplier": {
       "name": "Helios Solar Kft",
       "country": "HU",
-      "vatId": "HU23456789"
+      "vatId": "HU23456789",
+      "paymentAddress": "0x2aEE7a02F25d8A05051e0F6FA435a1CCFd9F9443"
     },
     "debtor": {
       "name": "Metro Utilities Zrt",

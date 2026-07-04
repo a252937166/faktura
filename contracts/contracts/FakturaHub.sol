@@ -31,6 +31,10 @@ struct InvoiceFacts {
     string docHash;
     uint256 amountUsdCents;
     uint256 dueTs; // unix seconds
+    /// @dev The supplier's payout wallet as recorded in the system of record.
+    /// While FDC enforcement is on, advances are paid to THIS attested
+    /// address — the agent cannot redirect them.
+    address supplierWallet;
 }
 
 /// @title FakturaHub — the autonomous invoice-financing desk on Flare.
@@ -67,6 +71,10 @@ contract FakturaHub {
     /// A compromised agent key can then only register receivables that the
     /// pinned ERP actually served (and FDC attested), not ones it invented.
     string public erpUrlPrefix;
+
+    /// @notice Maximum accepted age of an FTSOv2 feed value. Funding,
+    /// settlement quoting and reserve valuation revert on staler data.
+    uint64 public maxFeedAgeSeconds = 3600;
 
     /// @notice Hard underwriting limits enforced on-chain. The AI agent
     /// proposes risk/pricing, but registrations and fundings outside these
@@ -199,6 +207,7 @@ contract FakturaHub {
     );
     event TokenSettlementConfigured(address token, bytes21 feedId, uint8 decimals);
     event ErpUrlPrefixSet(string prefix);
+    event MaxFeedAgeSet(uint64 maxFeedAgeSeconds);
     event AgentAttested(
         uint64 indexed id,
         address indexed actor,
@@ -280,6 +289,14 @@ contract FakturaHub {
     function setErpUrlPrefix(string calldata _prefix) external onlyAdmin {
         erpUrlPrefix = _prefix;
         emit ErpUrlPrefixSet(_prefix);
+    }
+
+    /// @notice Bounds how old an FTSOv2 feed value may be before pricing
+    /// operations revert with StaleRate.
+    function setMaxFeedAge(uint64 _seconds) external onlyAdmin {
+        if (_seconds == 0) revert InvalidParams();
+        maxFeedAgeSeconds = _seconds;
+        emit MaxFeedAgeSet(_seconds);
     }
 
     /// @notice Updates the on-chain underwriting limits.
@@ -372,8 +389,11 @@ contract FakturaHub {
 
     /// @notice Registers an invoice whose facts are attested by the Flare
     /// Data Connector. The AI agent supplies its pricing decision alongside;
-    /// the receivable's facts (amount, tenor, identifiers) come from the
-    /// attested system-of-record response, not from the agent.
+    /// the receivable's facts (amount, tenor, identifiers, payout wallet)
+    /// come from the attested system-of-record response, not from the agent.
+    /// While FDC enforcement is on, `supplier` is ignored in favour of the
+    /// attested `supplierWallet` — a compromised agent key cannot redirect
+    /// advances to itself.
     function registerInvoice(
         IWeb2Json.Proof calldata proof,
         address supplier,
@@ -395,6 +415,13 @@ contract FakturaHub {
             proof.data.responseBody.abiEncodedData,
             (InvoiceFacts)
         );
+
+        if (fdcEnforced) {
+            // The payout beneficiary is a system-of-record fact, not an
+            // agent-chosen parameter.
+            if (facts.supplierWallet == address(0)) revert UntrustedSource();
+            supplier = facts.supplierWallet;
+        }
 
         if (supplier == address(0) || riskScore > 100 || discountBps >= 10_000)
             revert InvalidParams();
@@ -643,7 +670,10 @@ contract FakturaHub {
 
     function _readFeed(bytes21 _feedId) internal view returns (uint256 rate, int8 dec, uint64 ts) {
         (rate, dec, ts) = ftso.getFeedById(_feedId);
-        if (rate == 0) revert StaleRate();
+        // Freshness guard: reject zero rates and values older than the
+        // admin-set bound — funding, settlement quoting and reserve
+        // valuation all pass through here.
+        if (rate == 0 || ts + maxFeedAgeSeconds < block.timestamp) revert StaleRate();
     }
 
     /// @dev True when `str` starts with `prefix`.

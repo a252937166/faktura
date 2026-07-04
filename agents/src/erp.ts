@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config.js";
+import { chain } from "./chain.js";
 import { db } from "./store.js";
 
 /**
@@ -58,7 +59,9 @@ export function getErpDocument(invoiceNumber: string): ErpDocument | null {
       amountCents: Math.round(i.amountUsd * 100),
       dueAt: new Date(i.dueTs).toISOString(),
       dueTs: Math.floor(i.dueTs / 1000),
-      supplier: { name: i.supplierName },
+      // paymentAddress is a system-of-record fact: while FDC enforcement is
+      // on, the contract pays advances to THIS attested wallet.
+      supplier: { name: i.supplierName, paymentAddress: i.supplierAddress ?? chain.address("debtor") },
       debtor: { name: i.debtorName, tag: i.debtorTag },
       description: i.description,
       documentSha256: i.docHash,

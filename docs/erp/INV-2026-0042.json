@@ -10,7 +10,8 @@
     "supplier": {
       "name": "Nordwind Logistics GmbH",
       "country": "DE",
-      "vatId": "DE811223344"
+      "vatId": "DE811223344",
+      "paymentAddress": "0x2aEE7a02F25d8A05051e0F6FA435a1CCFd9F9443"
     },
     "debtor": {
       "name": "Aurora Retail AG",

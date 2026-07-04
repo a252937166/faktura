@@ -92,7 +92,7 @@ const tx = (): TxResult => {
 function factsFromProof(proof: any) {
   const encoded = proof?.data?.responseBody?.abiEncodedData as string;
   const [f] = AbiCoder.defaultAbiCoder().decode(
-    ["tuple(string,string,string,uint256,uint256)"],
+    ["tuple(string,string,string,uint256,uint256,address)"],
     encoded,
   );
   return {
@@ -101,6 +101,7 @@ function factsFromProof(proof: any) {
     docHash: String(f[2]),
     amountUsdCents: BigInt(f[3]),
     dueTs: Number(f[4]),
+    supplierWallet: String(f[5]),
   };
 }
 

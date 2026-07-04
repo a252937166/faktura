@@ -10,11 +10,13 @@ export interface InvoiceFacts {
   docHash: string;
   amountUsdCents: bigint;
   dueTs: number;
+  /** Attested payout wallet — while fdcEnforced, advances go here. */
+  supplierWallet: string;
 }
 
 /** jq filter shaping an ERP document into the InvoiceFacts tuple. */
 export const POST_PROCESS_JQ =
-  "{invoiceNumber: .invoice.number, debtorTag: .invoice.debtor.tag, docHash: .invoice.documentSha256, amountUsdCents: .invoice.amountCents, dueTs: .invoice.dueTs}";
+  "{invoiceNumber: .invoice.number, debtorTag: .invoice.debtor.tag, docHash: .invoice.documentSha256, amountUsdCents: .invoice.amountCents, dueTs: .invoice.dueTs, supplierWallet: .invoice.supplier.paymentAddress}";
 
 /** ABI shape of InvoiceFacts (field order = FakturaHub struct). */
 export const ABI_SIGNATURE = JSON.stringify({
@@ -24,6 +26,7 @@ export const ABI_SIGNATURE = JSON.stringify({
     { internalType: "string", name: "docHash", type: "string" },
     { internalType: "uint256", name: "amountUsdCents", type: "uint256" },
     { internalType: "uint256", name: "dueTs", type: "uint256" },
+    { internalType: "address", name: "supplierWallet", type: "address" },
   ],
   name: "invoiceFacts",
   type: "tuple",
@@ -38,20 +41,21 @@ const RESPONSE_ABI_TYPE =
 /** ABI-encodes InvoiceFacts as the FDC Web2Json responseBody would. */
 export function encodeFacts(f: InvoiceFacts): string {
   return abi.encode(
-    ["tuple(string,string,string,uint256,uint256)"],
-    [[f.invoiceNumber, f.debtorTag, f.docHash, f.amountUsdCents, BigInt(f.dueTs)]],
+    ["tuple(string,string,string,uint256,uint256,address)"],
+    [[f.invoiceNumber, f.debtorTag, f.docHash, f.amountUsdCents, BigInt(f.dueTs), f.supplierWallet]],
   );
 }
 
 /** Decodes InvoiceFacts out of a Web2Json proof's responseBody. */
 export function decodeFacts(abiEncodedData: string): InvoiceFacts {
-  const [t] = abi.decode(["tuple(string,string,string,uint256,uint256)"], abiEncodedData);
+  const [t] = abi.decode(["tuple(string,string,string,uint256,uint256,address)"], abiEncodedData);
   return {
     invoiceNumber: String(t[0]),
     debtorTag: String(t[1]),
     docHash: String(t[2]),
     amountUsdCents: BigInt(t[3]),
     dueTs: Number(t[4]),
+    supplierWallet: String(t[5]),
   };
 }
 

@@ -43,7 +43,7 @@ const EXPLORER = "https://coston2-explorer.flare.network";
 
 /** jq: shape the ERP document into the InvoiceFacts tuple. */
 const POST_PROCESS_JQ =
-  "{invoiceNumber: .invoice.number, debtorTag: .invoice.debtor.tag, docHash: .invoice.documentSha256, amountUsdCents: .invoice.amountCents, dueTs: .invoice.dueTs}";
+  "{invoiceNumber: .invoice.number, debtorTag: .invoice.debtor.tag, docHash: .invoice.documentSha256, amountUsdCents: .invoice.amountCents, dueTs: .invoice.dueTs, supplierWallet: .invoice.supplier.paymentAddress}";
 
 /** ABI shape of InvoiceFacts — must match FakturaHub's struct field order. */
 const ABI_SIGNATURE = JSON.stringify({
@@ -53,6 +53,7 @@ const ABI_SIGNATURE = JSON.stringify({
     { internalType: "string", name: "docHash", type: "string" },
     { internalType: "uint256", name: "amountUsdCents", type: "uint256" },
     { internalType: "uint256", name: "dueTs", type: "uint256" },
+    { internalType: "address", name: "supplierWallet", type: "address" },
   ],
   name: "invoiceFacts",
   type: "tuple",
@@ -78,8 +79,9 @@ const toUtf8Hex32 = (s: string) => ethers.encodeBytes32String(s);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
-  const contractAddr = process.env.FAKTURA_CONTRACT;
-  if (!contractAddr) throw new Error("FAKTURA_CONTRACT not set");
+  // Strict registrations belong on the permanently-strict EVIDENCE hub.
+  const contractAddr = process.env.FAKTURA_EVIDENCE_CONTRACT ?? process.env.FAKTURA_CONTRACT;
+  if (!contractAddr) throw new Error("FAKTURA_EVIDENCE_CONTRACT / FAKTURA_CONTRACT not set");
   const signers = await ethers.getSigners();
   const agent = signers[0];
   const supplier = process.env.FAKTURA_SUPPLIER ?? (signers[2] ?? agent).address;
@@ -97,6 +99,7 @@ async function main() {
     `invoice ${inv.number}: $${(inv.amountCents / 100).toFixed(2)} ` +
       `${inv.supplier?.name ?? "?"} → ${inv.debtor?.name ?? "?"}, due ${inv.dueAt}`,
   );
+  console.log(`attested payout wallet: ${inv.supplier?.paymentAddress ?? "(missing — strict registration will revert)"}`);
   if (inv.dueTs * 1000 <= Date.now()) {
     throw new Error("ERP document dueTs is in the past — registerInvoice would revert");
   }

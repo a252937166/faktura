@@ -387,6 +387,19 @@
     "inputs": [
       {
         "indexed": false,
+        "internalType": "uint64",
+        "name": "maxFeedAgeSeconds",
+        "type": "uint64"
+      }
+    ],
+    "name": "MaxFeedAgeSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
         "internalType": "uint16",
         "name": "maxRiskScore",
         "type": "uint16"
@@ -497,6 +510,11 @@
             "internalType": "uint256",
             "name": "dueTs",
             "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "supplierWallet",
+            "type": "address"
           }
         ],
         "internalType": "struct InvoiceFacts",
@@ -1053,6 +1071,19 @@
   },
   {
     "inputs": [],
+    "name": "maxFeedAgeSeconds",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "poolValue",
     "outputs": [
       {
@@ -1302,6 +1333,19 @@
       }
     ],
     "name": "setFdcEnforced",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "_seconds",
+        "type": "uint64"
+      }
+    ],
+    "name": "setMaxFeedAge",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

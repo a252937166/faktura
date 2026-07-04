@@ -45,11 +45,17 @@ async function main() {
   console.log(`FakturaHub deployed: ${address}`);
 
   // Interoperable settlement leg: DemoFXRP priced by the live XRP/USD feed.
-  const Fxrp = await ethers.getContractFactory("DemoFXRP");
-  const fxrp = await Fxrp.deploy();
-  await fxrp.waitForDeployment();
-  const fxrpAddress = await fxrp.getAddress();
-  console.log(`DemoFXRP deployed:  ${fxrpAddress}`);
+  // Reuse an existing token (FAKTURA_FXRP) so several hubs share one asset.
+  let fxrpAddress = process.env.FAKTURA_FXRP ?? "";
+  if (fxrpAddress) {
+    console.log(`DemoFXRP reused:    ${fxrpAddress}`);
+  } else {
+    const Fxrp = await ethers.getContractFactory("DemoFXRP");
+    const fxrp = await Fxrp.deploy();
+    await fxrp.waitForDeployment();
+    fxrpAddress = await fxrp.getAddress();
+    console.log(`DemoFXRP deployed:  ${fxrpAddress}`);
+  }
   await (await hub.configureTokenSettlement(fxrpAddress, XRP_USD_FEED_ID, 6)).wait();
 
   // Pin FDC-attested registrations to the supplier system of record.
@@ -62,6 +68,7 @@ async function main() {
   const oneUsdInFxrp = await hub.quoteUsdCentsInToken(100);
   console.log(`FTSOv2 live: $1.00 = ${ethers.formatUnits(oneUsdInFxrp, 6)} FXRP`);
 
+  console.log(`maxFeedAgeSeconds:  ${await hub.maxFeedAgeSeconds()} (FTSOv2 freshness guard)`);
   const policy = await hub.riskPolicy();
   console.log(
     `on-chain risk policy: maxRisk ${policy.maxRiskScore}, discount ${policy.minDiscountBps}-${policy.maxDiscountBps} bps, ` +
