@@ -8,6 +8,7 @@
 **Flare Summer Signal** submission · Bounty 1 (Interoperable Asset Products) ·
 Live on **Coston2** — evidence hub [`0x2415Ed…CeEb`](https://coston2-explorer.flare.network/address/0x2415Ed954A18a5c232c9d40a753C77f401AaCeEb) (verified, **permanently `fdcEnforced=true`**)
 
+**Demo video (2:39): [youtu.be/F0xH_rnV4iM](https://youtu.be/F0xH_rnV4iM)** ·
 **Hosted demo: [flare.axiqo.xyz](https://flare.axiqo.xyz/)** — public showcase
 (real Coston2 snapshot reads, simulated writes; the mode banner on the page and
 `/api/meta.showcase` say so). Real transaction evidence is in the table below.

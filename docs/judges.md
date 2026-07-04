@@ -4,6 +4,9 @@ Everything claimable is on-chain on **Coston2** and linked from the
 [README evidence table](../README.md#live-deployment--on-chain-evidence).
 This page is the shortest route through it.
 
+**Demo video (2:39): [youtu.be/F0xH_rnV4iM](https://youtu.be/F0xH_rnV4iM)** — the
+strict-path evidence and the showcase walkthrough in one cut.
+
 **Hosted demo: [flare.axiqo.xyz](https://flare.axiqo.xyz/)** — safe to click:
 it is a public showcase (real Coston2 snapshot reads, simulated writes — the
 mode banner on the page says which). The transactions below are the real proof.
