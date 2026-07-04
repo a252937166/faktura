@@ -222,7 +222,7 @@ export default function App() {
         <div className="stat">
           <div className="label">AI Attestations</div>
           <div className="value">{s?.attestationCount ?? 0}</div>
-          <div className="sub">decision hashes anchored on-chain</div>
+          <div className="sub">{meta?.showcase ? "decision hashes (snapshot + simulated)" : "decision hashes anchored on-chain"}</div>
         </div>
       </section>
 
@@ -560,7 +560,10 @@ function Drawer({
                   model {d.model} · {new Date(d.decidedTs).toLocaleTimeString()}
                 </div>
                 <div className="note" style={{ marginTop: 4 }}>
-                  memo hash {d.decisionHash.slice(0, 26)}… anchored on-chain
+                  memo hash {d.decisionHash.slice(0, 26)}…{" "}
+                  {String(record.chain.registerHash ?? "").startsWith("showcase:")
+                    ? "— recorded in simulated state"
+                    : "anchored on-chain"}
                 </div>
               </div>
             </div>
