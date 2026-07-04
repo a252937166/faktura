@@ -7,13 +7,13 @@ on:
 
 jobs:
   contracts:
-    name: contracts — hardhat tests
+    name: contracts - hardhat tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: contracts/package-lock.json
       - run: npm ci
@@ -22,13 +22,13 @@ jobs:
         working-directory: contracts
 
   agents:
-    name: agents — typecheck
+    name: agents - typecheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: agents/package-lock.json
       - run: npm ci
@@ -37,13 +37,13 @@ jobs:
         working-directory: agents
 
   web:
-    name: web — build
+    name: web - build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci

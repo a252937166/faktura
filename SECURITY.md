@@ -43,6 +43,9 @@ The deployment runs **two hubs from the same verified source**:
   every enforcement toggle is a public on-chain event (`FdcEnforcementSet`).
 - Production posture: `fdcEnforced = true` permanently; drop the toggle or
   move it behind a timelock.
+- Demo settlements pay the FTSOv2 quote plus ~1–2% headroom (drift
+  protection); `settleInvoice` keeps overpayment as LP yield — visible in the
+  `InvoiceSettled` event. A production build would refund the excess instead.
 
 ## Known limitations (testnet honesty)
 

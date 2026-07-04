@@ -22,7 +22,7 @@ is permanently strict — `fdcEnforced=true` from genesis, never demoted, and
 the tooling hard-refuses to run demo mode against it. The *demo hub* backs
 the interactive UI, where the (admin-only, evented) demo toggle may be used.
 
-| | |
+| Item | Value |
 |---|---|
 | Network | Flare **Coston2** (chainId 114) |
 | **EVIDENCE hub** (verified, always strict) | [`0x2415Ed954A18a5c232c9d40a753C77f401AaCeEb`](https://coston2-explorer.flare.network/address/0x2415Ed954A18a5c232c9d40a753C77f401AaCeEb#code) |
@@ -40,6 +40,7 @@ the interactive UI, where the (admin-only, evented) demo toggle may be used.
 | Demo hub: register + fund + attest (invoice A) | [reg](https://coston2-explorer.flare.network/tx/0xf4552fc2f569d3ab662accbdf27f917eaa6cb4b99a29e97571d13d2b29617f0d) · [fund](https://coston2-explorer.flare.network/tx/0x3f4d670e43b1bce3f82f5ae6dc869d456e4b457b55b2ebc3df7759387c6681e9) · [attest](https://coston2-explorer.flare.network/tx/0x4a7d10d18b6383882c7e80a34ea8379dbc3c2ba487805ab1b9e29ed48a60a8ef) |
 | Settle in FLR (FTSOv2 re-quote at settlement) | [tx](https://coston2-explorer.flare.network/tx/0x3459cd05d6233e07fdafef9e9893320d88283351ba7c51553ee3f283dc7a75eb) |
 | **Settle in FXRP** (XRP/USD feed — interoperable leg) | [tx](https://coston2-explorer.flare.network/tx/0x61903de99db379f3a09f3ae8439207028de03a7c7eb3031d31e5fdb6d86d9ef7) |
+| **Strict FDC → FXRP combined** (demo hub, round 1385898): AI underwrote the attested system-of-record facts, Merkle-verified registration, FTSOv2 funding, FXRP settlement | [req](https://coston2-explorer.flare.network/tx/0xd5f8568fb9e2a3a13e8184457b234b18278968473fed36bbcb4926ee68905074) · [reg](https://coston2-explorer.flare.network/tx/0xbc9598753719a54471ce46128a1043eb66b338044d4846e9fa67a8ae0f20e406) · [fund](https://coston2-explorer.flare.network/tx/0x00e8bfbb8aed4a4d61d5ba6bb1c920711f09781583be4d827a4422e5d54f803e) · [settle](https://coston2-explorer.flare.network/tx/0x5df19033a42b1a129a6f027c1d6446cd9e15ff1c0b051981cc0394e6e54ba259) |
 | Autonomous default write-off (collector) | [tx](https://coston2-explorer.flare.network/tx/0xf282e2abf4dcc3a3858ef7913457a62d7b90e529d5d4f977069aab25401798b2) |
 | AI rejection memo anchored on-chain | [tx](https://coston2-explorer.flare.network/tx/0x5d40e49bc39c42e722f362fd5bb5a6bbcc35debb9a26692779f09e4b2b5b410f) |
 
@@ -151,7 +152,7 @@ Flare parts are the point:
 ## Run it
 
 ```bash
-# 0. prerequisites: Node 20+, a funded Coston2 key (https://faucet.flare.network/coston2)
+# 0. prerequisites: Node 20+ (CI runs 22), a funded Coston2 key (https://faucet.flare.network/coston2)
 cp .env.example .env             # then create keys/{agent,investor,debtor}.key
                                  # (0x-prefixed private keys; agent = deployer/admin)
 
@@ -188,11 +189,16 @@ restored after runs). The evidence table at the top links the strict path.
 deliberately small USD invoices. The contract logic is scale-independent —
 mainnet FLR/FXRP liquidity handles production-size receivables unchanged.
 
+**Settlement headroom.** Demo settlements send the FTSOv2 quote plus ~1–2%
+headroom so rate drift between quoting and inclusion cannot underpay;
+`settleInvoice` keeps any overpayment, which accrues to LPs as yield (stated
+on-chain in the `InvoiceSettled` event's yield field).
+
 ## The system of record (Web2Json source)
 
 Strict-mode attestations read canonical invoice JSON from
 `docs/erp/*.json`, served with `Content-Type: application/json` by GitHub
-Pages at `https://a252937166.github.io/faktura/erp/<number>.json` — the same
+Pages at `https://a252937166.github.io/faktura/erp/{number}.json` — the same
 prefix pinned on-chain via `erpUrlPrefix`. The agent service also serves the
 identical shape at `GET /erp/invoices/:number`, so a publicly hosted
 deployment is its own attestable system of record
@@ -203,7 +209,7 @@ sha256 of the raw invoice text — which becomes the on-chain dedupe key.
 
 ```bash
 # pick any decisionHash / attestation payloadHash from the explorer, then:
-curl -s localhost:4020/api/memos/<sha256-hex> | shasum -a 256
+curl -s localhost:4020/api/memos/{sha256-hex} | shasum -a 256
 # → equals the on-chain hash. docs/samples/ contains a committed example.
 ```
 

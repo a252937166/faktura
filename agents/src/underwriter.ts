@@ -98,6 +98,58 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
   );
   if (duplicate) return hardFail(`duplicate document (matches ${duplicate.intake.invoiceNumber})`);
 
+  // ---- Strict mode: underwrite the SYSTEM OF RECORD, not the intake form ---
+  // Pre-fetch the ERP document the FDC attestation will read. The model then
+  // scores the document's facts; the intake form is only cross-checked
+  // against them. Unfetchable or mismatching documents reject before any
+  // attestation fee is spent.
+  interface SorFacts {
+    amountUsd: number;
+    dueTs: number;
+    description: string;
+    debtorName: string;
+    supplierName: string;
+    history?: string;
+    docHash: string;
+    debtorTag: string;
+  }
+  let sor: SorFacts | null = null;
+  if (config.fdcMode === "strict") {
+    const sourceUrl = erpUrlFor(input.invoiceNumber);
+    try {
+      const res = await fetch(sourceUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const doc = (await res.json()) as { invoice: Record<string, any> };
+      const inv = doc.invoice;
+      sor = {
+        amountUsd: Number(inv.amountCents) / 100,
+        dueTs: Number(inv.dueTs) * 1000,
+        description: String(inv.description ?? ""),
+        debtorName: String(inv.debtor?.name ?? ""),
+        supplierName: String(inv.supplier?.name ?? ""),
+        history: inv.history ? JSON.stringify(inv.history) : undefined,
+        docHash: String(inv.documentSha256 ?? ""),
+        debtorTag: String(inv.debtor?.tag ?? ""),
+      };
+    } catch (e) {
+      return hardFail(
+        `strict mode: no attestable system-of-record document at ${sourceUrl} (${(e as Error).message.slice(0, 80)})`,
+      );
+    }
+    if (Math.round(sor.amountUsd * 100) !== Math.round(input.amountUsd * 100))
+      return hardFail(
+        `intake amount $${input.amountUsd} does not match the system of record ($${sor.amountUsd})`,
+      );
+    if (Math.floor(input.dueTs / 1000) !== Math.floor(sor.dueTs / 1000))
+      return hardFail("intake due date does not match the system of record");
+    policyNotes.push(`system-of-record document verified: ${sourceUrl}`);
+    feed.publish({
+      actor: "underwriter",
+      kind: "fdc",
+      message: `Strict mode: underwriting the system-of-record facts from ${sourceUrl}`,
+    });
+  }
+
   // ---- LLM opinion --------------------------------------------------------
   feed.publish({
     actor: "underwriter",
@@ -105,13 +157,13 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
     message: `Scoring ${input.invoiceNumber} with the autonomous AI underwriter...`,
   });
   const { opinion, provider, model } = await llmUnderwrite({
-    supplierName: input.supplierName,
-    debtorName: input.debtorName,
-    amountUsd: input.amountUsd,
-    dueTs: input.dueTs,
+    supplierName: sor?.supplierName || input.supplierName,
+    debtorName: sor?.debtorName || input.debtorName,
+    amountUsd: sor?.amountUsd ?? input.amountUsd,
+    dueTs: sor?.dueTs ?? input.dueTs,
     invoiceNumber: input.invoiceNumber,
-    description: input.description,
-    history: input.history,
+    description: sor?.description || input.description,
+    history: sor?.history ?? input.history,
   });
 
   let { approve, risk_score, discount_bps } = opinion;
@@ -141,6 +193,9 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
       intakeId,
       invoiceNumber: input.invoiceNumber,
       decidedAt: new Date().toISOString(),
+      underwritten: sor
+        ? { from: "system-of-record", source: erpUrlFor(input.invoiceNumber) }
+        : { from: "intake" },
       provider,
       model,
       opinion,
@@ -197,13 +252,27 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
       const strict = await requestWeb2JsonProof(erpUrlFor(input.invoiceNumber), (message) =>
         feed.publish({ actor: "underwriter", kind: "fdc", message }),
       );
+      // Full cross-check: the ATTESTED facts must equal the reviewed
+      // system-of-record document (guards the fetch→attestation window).
       const attested = strict.facts;
-      if (Number(attested.amountUsdCents) !== Math.round(input.amountUsd * 100)) {
+      const mismatch =
+        attested.invoiceNumber !== input.invoiceNumber
+          ? "invoiceNumber"
+          : Number(attested.amountUsdCents) !== Math.round((sor?.amountUsd ?? input.amountUsd) * 100)
+            ? "amountUsdCents"
+            : sor && attested.dueTs !== Math.floor(sor.dueTs / 1000)
+              ? "dueTs"
+              : sor && attested.docHash !== sor.docHash
+                ? "documentSha256"
+                : sor && attested.debtorTag !== sor.debtorTag
+                  ? "debtorTag"
+                  : null;
+      if (mismatch) {
         return finalizeReject(record, {
           riskScore: 100,
           discountBps: discount_bps,
-          rationale: `Intake amount $${input.amountUsd} does not match the attested system-of-record amount $${Number(attested.amountUsdCents) / 100}.`,
-          redFlags: ["intake/system-of-record mismatch"],
+          rationale: `Attested facts diverge from the reviewed system-of-record document (field: ${mismatch}). The document changed between review and attestation; not financing.`,
+          redFlags: [`attested/${mismatch} mismatch`],
           model: "fdc-crosscheck",
           policyNotes,
         });
