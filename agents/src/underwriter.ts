@@ -329,11 +329,13 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
   feed.publish({
     actor: "underwriter",
     kind: "onchain",
-    message: `Invoice #${record.id} registered on Coston2 (facts ${
-      config.fdcMode === "strict"
-        ? `FDC-attested, round ${record.chain.fdcVotingRound}`
-        : "FDC-encoded (demo mode)"
-    })`,
+    message: config.showcase
+      ? `Invoice #${record.id} registered in the showcase ledger (simulated write; facts FDC-encoded)`
+      : `Invoice #${record.id} registered on Coston2 (facts ${
+          config.fdcMode === "strict"
+            ? `FDC-attested, round ${record.chain.fdcVotingRound}`
+            : "FDC-encoded (demo mode)"
+        })`,
     invoiceId: record.id,
     deployHash: reg.hash,
   });
@@ -347,7 +349,9 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
   feed.publish({
     actor: "underwriter",
     kind: "onchain",
-    message: `Invoice #${record.id} FUNDED — ${onchain ? Number(formatEther(onchain.advanceFlrWei)).toFixed(2) : "?"} FLR advance streamed to supplier (priced at live FTSO rate)`,
+    message: config.showcase
+      ? `Invoice #${record.id} FUNDED in simulated state — ${onchain ? Number(formatEther(onchain.advanceFlrWei)).toFixed(2) : "?"} FLR advance (priced at the captured FTSOv2 rate)`
+      : `Invoice #${record.id} FUNDED — ${onchain ? Number(formatEther(onchain.advanceFlrWei)).toFixed(2) : "?"} FLR advance streamed to supplier (priced at live FTSO rate)`,
     invoiceId: record.id,
     deployHash: funded.hash,
   });
@@ -358,7 +362,9 @@ export async function processIntake(input: IntakeInput): Promise<InvoiceRecord> 
   feed.publish({
     actor: "underwriter",
     kind: "attest",
-    message: `Decision memo hash anchored on-chain (attestation #${att.id})`,
+    message: config.showcase
+      ? `Decision memo hash recorded in the simulated attestation log (#${att.id})`
+      : `Decision memo hash anchored on-chain (attestation #${att.id})`,
     invoiceId: record.id,
     deployHash: att.hash,
   });
@@ -421,7 +427,9 @@ async function finalizeReject(
     feed.publish({
       actor: "underwriter",
       kind: "attest",
-      message: `Rejection memo anchored on-chain (attestation #${att.id})`,
+      message: config.showcase
+        ? `Rejection memo recorded in the simulated attestation log (#${att.id})`
+        : `Rejection memo anchored on-chain (attestation #${att.id})`,
       deployHash: att.hash,
     });
   } catch (e) {

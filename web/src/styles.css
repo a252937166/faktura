@@ -461,3 +461,11 @@ th:first-child, td:first-child { padding-left: 20px; }
 .mode-showcase b { color: #ffcc4d; }
 .mode-live { border-color: rgba(46, 230, 168, 0.45); }
 .mode-live b { color: #2ee6a8; }
+.sim-tag {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #ffcc4d;
+  border: 1px solid rgba(255, 204, 77, 0.45);
+}

@@ -82,10 +82,12 @@ export function getSeed(): SeedState {
   return _seed;
 }
 
-const pseudoHash = () => `0x${crypto.randomBytes(32).toString("hex")}`;
+// Simulated writes are tagged so they can never impersonate a real Coston2
+// transaction: no 0x prefix, no explorer link. The UI renders them as such.
+const pseudoHash = () => `showcase:${crypto.randomBytes(12).toString("hex")}`;
 const tx = (): TxResult => {
   const hash = pseudoHash();
-  return { hash, explorer: `${config.explorerBase}/tx/${hash}` };
+  return { hash, explorer: "" };
 };
 
 /** Decodes InvoiceFacts back out of a (demo) Web2Json proof. */

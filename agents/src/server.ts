@@ -101,7 +101,14 @@ app.post("/api/demo/deposit", async (req, res) => {
     feed.publish({ actor: "system", kind: "demo", message: `LP depositing ${flr} FLR into the pool...` });
     const r = await chain.deposit("investor", parseEther(String(flr)));
     statsCache.ts = 0;
-    feed.publish({ actor: "system", kind: "onchain", message: `LP deposit confirmed on-chain`, deployHash: r.hash });
+    feed.publish({
+      actor: "system",
+      kind: "onchain",
+      message: config.showcase
+        ? "LP deposit recorded in simulated pool state"
+        : "LP deposit confirmed on-chain",
+      deployHash: r.hash,
+    });
     res.json({ ok: true, txHash: r.hash });
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
@@ -122,14 +129,16 @@ app.post("/api/demo/settle/:id", async (req, res) => {
     feed.publish({
       actor: "system",
       kind: "demo",
-      message: `Debtor settling invoice #${id}: $${Number(inv.faceUsdCents) / 100} = ${Number(formatEther(requiredWei)).toFixed(2)} FLR at live FTSO rate...`,
+      message: `Debtor settling invoice #${id}: $${Number(inv.faceUsdCents) / 100} = ${Number(formatEther(requiredWei)).toFixed(2)} FLR at ${config.showcase ? "the captured" : "live"} FTSO rate...`,
     });
     const r = await chain.settle(id, withHeadroom);
     statsCache.ts = 0;
     feed.publish({
       actor: "system",
       kind: "onchain",
-      message: `Invoice #${id} settlement confirmed`,
+      message: config.showcase
+        ? `Invoice #${id} settlement simulated in showcase state`
+        : `Invoice #${id} settlement confirmed on Coston2`,
       invoiceId: id,
       deployHash: r.hash,
     });
@@ -153,14 +162,16 @@ app.post("/api/demo/settle-fxrp/:id", async (req, res) => {
     feed.publish({
       actor: "system",
       kind: "demo",
-      message: `Debtor settling invoice #${id} in FXRP: $${Number(inv.faceUsdCents) / 100} = ${(Number(tokenAmount) / 1e6).toFixed(4)} FXRP at live XRP/USD FTSO rate...`,
+      message: `Debtor settling invoice #${id} in FXRP: $${Number(inv.faceUsdCents) / 100} = ${(Number(tokenAmount) / 1e6).toFixed(4)} FXRP at ${config.showcase ? "the captured" : "live"} XRP/USD FTSO rate...`,
     });
     const r = await chain.settleInToken(id, tokenAmount);
     statsCache.ts = 0;
     feed.publish({
       actor: "system",
       kind: "onchain",
-      message: `Invoice #${id} settled in FXRP — token reserve now held by the pool, valued via FTSOv2`,
+      message: config.showcase
+        ? `Invoice #${id} settled in FXRP (simulated) — token reserve tracked in showcase state, valued via FTSOv2`
+        : `Invoice #${id} settled in FXRP — token reserve now held by the pool, valued via FTSOv2`,
       invoiceId: id,
       deployHash: r.hash,
     });

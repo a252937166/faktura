@@ -347,11 +347,16 @@ export default function App() {
                   <div className="meta">
                     <span>{e.actor}</span>
                     <span>{timeAgo(e.ts)}</span>
-                    {e.deployHash && (
-                      <a target="_blank" rel="noreferrer" href={`${EXPLORER}/tx/${e.deployHash}`}>
-                        tx {e.deployHash.slice(0, 8)}…
-                      </a>
-                    )}
+                    {e.deployHash &&
+                      (String(e.deployHash).startsWith("showcase:") ? (
+                        <span className="sim-tag" title="Simulated write — showcase mode, not a Coston2 transaction">
+                          simulated
+                        </span>
+                      ) : (
+                        <a target="_blank" rel="noreferrer" href={`${EXPLORER}/tx/${e.deployHash}`}>
+                          tx {e.deployHash.slice(0, 8)}…
+                        </a>
+                      ))}
                   </div>
                 </div>
               </div>
@@ -615,9 +620,15 @@ function Drawer({
           {txs.map(([label, hash]) => (
             <div className="txlink" key={String(hash)}>
               <span>{label}</span>
-              <a target="_blank" rel="noreferrer" href={`${EXPLORER}/tx/${hash}`}>
-                {String(hash).slice(0, 14)}… ↗
-              </a>
+              {String(hash).startsWith("showcase:") ? (
+                <span className="sim-tag" title="Simulated write — showcase mode, not a Coston2 transaction">
+                  simulated
+                </span>
+              ) : (
+                <a target="_blank" rel="noreferrer" href={`${EXPLORER}/tx/${hash}`}>
+                  {String(hash).slice(0, 14)}… ↗
+                </a>
+              )}
             </div>
           ))}
         </div>
